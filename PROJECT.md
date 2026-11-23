@@ -266,3 +266,11 @@ O schema (`database/schema.sql`) roda sozinho no primeiro `up` (volume `dbdata`)
 - Site estático em `~/Desktop/Website`, publicado por FTP na Hostinger (`public_html`). Domínio liprojetos.com.br: o DNS aponta para a Hostinger, mas faltava o registro A apontando para 46.202.199.58.
 - Preços oficiais: planta 3D R$ 490; estudo preliminar R$ 990 (até 100 m²), R$ 1.690 (até 200 m²), R$ 2.490 (até 300 m²), acima disso sob consulta; projeto R$ 100/m² com mínimo de R$ 3.500; consultoria R$ 250/h; 2 rodadas de revisão por etapa; só a etapa paga mais alta é abatida do projeto.
 - WhatsApp da empresa: +55 61 99241-4304. Instagram: @li.projetos.
+
+- **WhatsApp no CRM via DROPE (23/11/2026, staging e produção).**
+  - `/whatsapp`: conversas do número da empresa. Lista e conversa aberta se atualizam a cada 5 s; resposta enviada pela API da DROPE; "Cadastrar cliente" abre o formulário preenchido e liga a conversa; número de cliente existente é ligado sozinho.
+  - Webhook `POST /api/whatsapp/{WHATSAPP_WEBHOOK_SECRET}` + assinatura `X-DROPE-Signature` (segredo em `settings.wa_signing_secret`, gravado por `bin/whatsapp-setup.php`).
+  - A DROPE tem **um webhook por número**: quem rodou `bin/whatsapp-setup.php` por último recebe as mensagens (hoje: produção). Rodar no staging tira da produção.
+  - Formato do corpo recebido não está documentado pela DROPE; `WhatsApp::parse` lê o formato UAZAPI. Corpo desconhecido fica em `storage/whatsapp-unparsed.json`.
+  - `.env`: `WHATSAPP_DRIVER` (drope/teste/vazio), `WHATSAPP_WEBHOOK_SECRET`, `DROPESTORE_URL`, `DROPESTORE_TOKEN` (token do dispositivo `dwa_`).
+  - Links de `app.css`/`app.js` levam `?v=` (data do arquivo): a hospedagem guarda /assets por 7 dias.
