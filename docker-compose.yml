@@ -1,0 +1,22 @@
+services:
+  app:
+    build: .
+    ports: ["127.0.0.1:8080:80"]
+    volumes: [".:/var/www/html"]
+    env_file: .env
+    depends_on: [db]
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASS}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASS}
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    volumes: ["dbdata:/var/lib/mysql", "./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro"]
+    ports: ["127.0.0.1:3307:3306"]
+  mail:
+    image: axllent/mailpit
+    ports: ["127.0.0.1:8025:8025"]
+volumes:
+  dbdata:

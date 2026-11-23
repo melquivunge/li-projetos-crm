@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100" fill="none">
+  <!-- Outer Architectural Compass Circle -->
+  <circle cx="50" cy="50" r="44" stroke="#C5A059" stroke-width="1.2" opacity="0.85"/>
+  <circle cx="50" cy="50" r="41" stroke="currentColor" stroke-width="0.6" stroke-dasharray="1.5,3" opacity="0.4"/>
+  
+  <!-- Cardinal Drafting Marks (Precision Axis) -->
+  <line x1="50" y1="3" x2="50" y2="8" stroke="#C5A059" stroke-width="1.2"/>
+  <line x1="50" y1="92" x2="50" y2="97" stroke="#C5A059" stroke-width="1.2"/>
+  <line x1="3" y1="50" x2="8" y2="50" stroke="#C5A059" stroke-width="1.2"/>
+  <line x1="92" y1="50" x2="97" y2="50" stroke="#C5A059" stroke-width="1.2"/>
+
+  <!-- Monogram LI: Pure Architectural Orthogonal Geometry -->
+  <!-- Letter L (Pillar & Baseline) -->
+  <path d="M34 26V74H58" stroke="currentColor" stroke-width="3.2" stroke-linecap="square" stroke-linejoin="miter"/>
+  
+  <!-- Letter I (Structural Column with Golden Capital) -->
+  <path d="M66 33V74" stroke="currentColor" stroke-width="3.2" stroke-linecap="square"/>
+  
+  <!-- Golden Capital / Precision Focal Point on 'I' -->
+  <rect x="63.5" y="24" width="5" height="5" fill="#C5A059" transform="rotate(45 66 26.5)"/>
+
+  <!-- Fine Horizontal Drafting Line (Floor datum line) -->
+  <line x1="26" y1="74" x2="74" y2="74" stroke="#C5A059" stroke-width="0.8" opacity="0.6"/>
+</svg>

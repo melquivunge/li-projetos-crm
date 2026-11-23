@@ -1,0 +1,6 @@
+.env
+vendor/
+storage/*
+!storage/.gitkeep
+storage-admin.txt
+.DS_Store
