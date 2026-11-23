@@ -38,7 +38,7 @@ F=$(curl -s -b $S/adm.jar "$B/clientes/novo?wa=$C")
 echo "formulário pré-preenchido: nome $(echo "$F" | grep -c 'value="Maria Teste WA"') | número $(echo "$F" | grep -c "value=\"$PH\"") | origem $(echo "$F" | grep -c 'value="WhatsApp"') | vínculo $(echo "$F" | grep -c "name=\"wa_chat\" value=\"$C\"")"
 L=$(curl -s -o /dev/null -w "%{redirect_url}" -b $S/adm.jar --data-urlencode "_csrf=$T" --data-urlencode "name=Maria Teste WA" --data-urlencode "whatsapp=$PH" -d origin=WhatsApp -d wa_chat=$C -d email=w-maria@example.com $B/clientes); CID=${L##*/}
 echo "cadastrar: cliente $CID | conversa ligada: $(q "SELECT client_id FROM wa_chats WHERE id=?" $C) | oportunidade: $(q "SELECT stage FROM opportunities WHERE client_id=?" $CID) | linha do tempo: $(q "SELECT COUNT(*) FROM client_events WHERE client_id=? AND body LIKE 'Cadastrado a partir do WhatsApp%'" $CID)"
-echo "ficha com card WhatsApp: $(curl -s -b $S/adm.jar $B/clientes/$CID | grep -c 'Abrir conversa') | conversa mostra 'Abrir ficha': $(curl -s -b $S/adm.jar $B/whatsapp/$C | grep -c '>ficha</a>')"
+echo "ficha com card WhatsApp: $(curl -s -b $S/adm.jar $B/clientes/$CID | grep -c 'Abrir conversa') | conversa mostra 'Abrir ficha': $(curl -s -b $S/adm.jar $B/whatsapp/$C | grep -c 'ficha</span></a>')"
 echo "comercial, cliente de outra pessoa: conversa $(curl -s -b $S/com.jar -o /dev/null -w %{http_code} $B/whatsapp/$C) | envio $(curl -s -o /dev/null -w %{http_code} -b $S/com.jar --data-urlencode "_csrf=$(tok com)" -d text=x $B/whatsapp/$C/enviar) | na lista: $(curl -s -b $S/com.jar $B/whatsapp | grep -c 'Maria Teste WA')"
 
 N2=8$(printf '%07d' $((RANDOM * 30 + RANDOM % 30))); PH2="+55619$N2"
@@ -61,3 +61,31 @@ foreach ($ids as $i) Db::q("DELETE FROM notifications WHERE link = ?", ["/whatsa
 Db::q("DELETE FROM wa_chats WHERE phone IN (?,?,?)", [$argv[1], $argv[2], $argv[3]]); Db::q("DELETE FROM clients WHERE email LIKE \"w-%@example.com\"");
 Db::q("DELETE FROM users WHERE email LIKE \"w-%@example.com\""); Db::q("DELETE FROM login_attempts WHERE email LIKE \"%w-%@example.com\"");' $PH $PH2 $PH3
 rm -r "$S"
+
+# ---- Mídia: enviar arquivo (foto, áudio, PDF), servir com permissão e Range; tipo proibido recusado
+T=$(mktemp -d); A=$(mktemp -d)
+ffmpeg -loglevel error -f lavfi -i "sine=frequency=440:duration=2" -q:a 9 $T/audio.mp3
+ffmpeg -loglevel error -f lavfi -i "color=c=orange:s=320x200" -frames:v 1 $T/foto.png
+printf '%%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%%%EOF' > $T/planta.pdf
+printf '<html><script>alert(1)</script></html>' > $T/pagina.html
+docker compose exec -T -e ADMIN_PASSWORD=$P app php bin/create-admin.php "W Admin" w-admin@example.com >/dev/null
+J=$A/adm.jar; TK=$(curl -s -c $J $B/login | grep -o 'name="_csrf" value="[^"]*' | cut -d'"' -f4); curl -s -o /dev/null -b $J -c $J --data-urlencode "_csrf=$TK" -d email=w-admin@example.com --data-urlencode "password=$P" $B/login
+TK=$(curl -s -b $J $B/tarefas | grep -o 'name="_csrf" value="[^"]*' | head -1 | cut -d'"' -f4)
+NM=8$(printf '%07d' $((RANDOM * 30 + RANDOM % 30))); PM="+55619$NM"
+hook $SECRET "$(evo 5561$NM@s.whatsapp.net w-$(openssl rand -hex 6) 'quero ver a planta')" >/dev/null
+CM=$(q "SELECT id FROM wa_chats WHERE phone=?" $PM)
+up(){ curl -s -o /dev/null -w %{http_code} -b $J --form-string _csrf=$TK --form-string "text=$2" -F "file=@$1" $B/whatsapp/$CM/enviar; }
+echo "envia foto: $(up $T/foto.png 'Olha a referência') | áudio: $(up $T/audio.mp3 '') | PDF: $(up $T/planta.pdf 'Planta') | HTML (proibido): $(up $T/pagina.html '') | só legenda vazia sem arquivo: $(curl -s -o /dev/null -w %{http_code} -b $J --form-string _csrf=$TK --form-string text= $B/whatsapp/$CM/enviar)"
+echo "gravadas: $(q "SELECT GROUP_CONCAT(CONCAT(kind,':',media_mime,':',status) ORDER BY id SEPARATOR ' ') FROM wa_messages WHERE chat_id=? AND from_me=1" $CM)"
+MA=$(q "SELECT id FROM wa_messages WHERE chat_id=? AND kind='audio'" $CM); MF=$(q "SELECT id FROM wa_messages WHERE chat_id=? AND kind='imagem'" $CM); MD=$(q "SELECT id FROM wa_messages WHERE chat_id=? AND kind='documento'" $CM)
+echo "foto: $(curl -s -o /dev/null -w '%{http_code} %{content_type}' -b $J $B/whatsapp/midia/$MF) | PDF: $(curl -s -o /dev/null -w '%{http_code} %{content_type}' -b $J $B/whatsapp/midia/$MD)"
+echo "áudio inteiro: $(curl -s -o $T/back.mp3 -w '%{http_code} %{content_type}' -b $J $B/whatsapp/midia/$MA) igual ao enviado: $(cmp -s $T/audio.mp3 $T/back.mp3 && echo sim || echo NÃO) | Range 0-99: $(curl -s -o /dev/null -w '%{http_code} %{size_download}B' -H 'Range: bytes=0-99' -b $J $B/whatsapp/midia/$MA)"
+echo "sem login: $(curl -s -o /dev/null -w %{http_code} $B/whatsapp/midia/$MA)"
+H=$(curl -s -b $J $B/whatsapp/$CM); echo "tela: <audio> $(echo "$H" | grep -c '<audio') | <img> $(echo "$H" | grep -c 'class="wa-media"') | documento $(echo "$H" | grep -c 'class="wa-doc"') | botão anexar $(echo "$H" | grep -c 'id="wa-file"')"
+echo "poll traz tipo: $(curl -s -b $J "$B/whatsapp/$CM/mensagens?depois=0" | grep -o '"kind":"[a-z]*"' | sort | uniq -c | tr '\n' ' ')"
+DA=$(printf '{"EventType":"messages","message":{"chatid":"5561%s@s.whatsapp.net","messageid":"w-a%s","fromMe":false,"isGroup":false,"senderName":"X","messageType":"AudioMessage","text":""}}' $NM $(openssl rand -hex 4))
+php_ 'App\Db::q("DELETE FROM settings WHERE k=\"wa_signing_secret\"");'
+echo "áudio recebido (sem DROPE local): $(curl -s -o /dev/null -w %{http_code} -H 'Content-Type: application/json' --data-binary "$DA" $B/api/whatsapp/$SECRET) | gravado como: $(q "SELECT CONCAT(kind,'/',body) FROM wa_messages WHERE chat_id=? AND from_me=0 ORDER BY id DESC LIMIT 1" $CM) | mídia indisponível: $(curl -s -o /dev/null -w %{http_code} -b $J $B/whatsapp/midia/$(q "SELECT id FROM wa_messages WHERE chat_id=? AND from_me=0 ORDER BY id DESC LIMIT 1" $CM))"
+php_ 'use App\Db; foreach (Db::q("SELECT media_path FROM wa_messages m JOIN wa_chats w ON w.id=m.chat_id WHERE w.phone=? AND media_path IS NOT NULL", [$argv[1]])->fetchAll(PDO::FETCH_COLUMN) as $r) @unlink(storage_path("wa/").$r);
+Db::q("DELETE FROM notifications WHERE link IN (SELECT CONCAT(\"/whatsapp/\",id) FROM wa_chats WHERE phone=?)", [$argv[1]]); Db::q("DELETE FROM wa_chats WHERE phone=?", [$argv[1]]); Db::q("DELETE FROM users WHERE email=\"w-admin@example.com\"");' $PM
+rm -r $T $A

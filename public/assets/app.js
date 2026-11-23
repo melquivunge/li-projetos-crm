@@ -156,18 +156,37 @@ if (zip) zip.addEventListener('input', async () => {
   const box = document.getElementById('wa-msgs');
   const end = () => { if (box) box.scrollTop = box.scrollHeight; };
   end();
+  // photos load after the first scroll: keep the newest message in view while they arrive (unless the user scrolled up)
+  const stick = (img) => img.addEventListener('load', () => { if (box.scrollHeight - box.scrollTop - box.clientHeight < img.clientHeight + 120) end(); }, { once: true });
+  box?.querySelectorAll('img').forEach(stick);
   const ta = document.getElementById('wa-text');
   if (ta) {
     const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 160) + 'px'; };
     ta.addEventListener('input', grow);
-    ta.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); if (ta.value.trim()) ta.form.requestSubmit(); } });
+    const file = document.getElementById('wa-file'), chosen = document.getElementById('wa-chosen');
+    const ready = () => ta.value.trim() || file?.files.length;
+    ta.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); if (ready()) ta.form.requestSubmit(); } });
+    ta.form.addEventListener('submit', (e) => { if (!ready()) e.preventDefault(); });
+    file?.addEventListener('change', () => {
+      const f = file.files[0];
+      if (f && f.size > 15 * 1024 * 1024) { alert('O arquivo pode ter no máximo 15 MB.'); file.value = ''; }
+      chosen.hidden = !file.files.length;
+      document.getElementById('wa-chosen-name').textContent = file.files[0]?.name || '';
+      ta.placeholder = file.files.length ? 'Legenda (opcional)' : 'Escreva uma mensagem';
+      ta.focus();
+    });
+    document.getElementById('wa-chosen-clear')?.addEventListener('click', () => { file.value = ''; file.dispatchEvent(new Event('change')); });
     ta.form.addEventListener('submit', () => { ta.form.querySelector('button[type="submit"]').disabled = true; });
     if (matchMedia('(min-width: 992px)').matches) ta.focus();
   }
   const add = (m) => {
     const d = document.createElement('div');
     d.className = 'wa-msg' + (m.mine ? ' is-mine' : '') + (m.status === 'falhou' ? ' is-failed' : '');
-    const p = document.createElement('p'); p.textContent = m.body; d.append(p);
+    const src = `/whatsapp/midia/${m.id}`;
+    if (m.kind === 'imagem') { const a = document.createElement('a'); a.className = 'wa-media'; a.href = src; a.target = '_blank'; a.rel = 'noopener'; const i = document.createElement('img'); i.src = src; i.alt = 'Imagem'; stick(i); a.append(i); d.append(a); }
+    else if (m.kind === 'audio' || m.kind === 'video') { const v = document.createElement(m.kind === 'audio' ? 'audio' : 'video'); v.className = m.kind === 'audio' ? 'wa-audio' : 'wa-video'; v.controls = true; v.preload = 'none'; v.src = src; d.append(v); }
+    else if (m.kind === 'documento') { const a = document.createElement('a'); a.className = 'wa-doc'; a.href = src; a.target = '_blank'; a.rel = 'noopener'; a.textContent = '📄 ' + (m.file || 'Documento'); d.append(a); }
+    if (m.kind === 'texto' || m.kind === 'outro' || m.caption) { const p = document.createElement('p'); p.textContent = m.body; d.append(p); }
     const s = document.createElement('span'); s.className = 'wa-meta';
     s.textContent = (m.mine && m.by ? m.by.split(' ')[0] + ' · ' : '') + m.time + (m.status === 'falhou' ? ' · não enviada' : '');
     d.append(s);

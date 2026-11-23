@@ -54,7 +54,8 @@ final class WhatsApp
             if ($text === '' && $kind === 'texto') return [];
             $ts = isset($dm['messageTimestamp']) ? (int) $dm['messageTimestamp'] : null;
             return [['phone' => $phone, 'name' => !empty($dm['fromMe']) ? null : self::clean($dm['senderName'] ?? $p['chat']['name'] ?? null), 'text' => $text, 'kind' => $kind,
-                'id' => mb_substr((string) $dm['messageid'], 0, 120), 'from_me' => !empty($dm['fromMe']), 'at' => $ts && $ts > 99999999999 ? intdiv($ts, 1000) : $ts]];
+                'id' => mb_substr((string) $dm['messageid'], 0, 120), 'from_me' => !empty($dm['fromMe']), 'at' => $ts && $ts > 99999999999 ? intdiv($ts, 1000) : $ts,
+                'file' => $kind === 'documento' ? self::clean($dm['content']['fileName'] ?? $dm['fileName'] ?? $dm['content']['title'] ?? null) : null]];
         }
         if (isset($p['data']) && is_array($p['data'])) { // Evolution
             if ($event !== '' && str_replace('_', '.', $event) !== 'messages.upsert') return [];
@@ -137,6 +138,92 @@ final class WhatsApp
         return ['ok' => false, 'id' => null, 'error' => $code ? "O WhatsApp recusou o envio (HTTP $code)." : 'Sem resposta do WhatsApp.'];
     }
 
+    /** Media kept on the server: real type (finfo) → extension. Anything else is refused. */
+    public const MEDIA = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif',
+        'audio/mpeg' => 'mp3', 'audio/ogg' => 'ogg', 'audio/mp4' => 'm4a', 'audio/aac' => 'aac', 'audio/x-m4a' => 'm4a', 'audio/wav' => 'wav', 'audio/x-wav' => 'wav',
+        'video/mp4' => 'mp4', 'video/quicktime' => 'mov', 'video/3gpp' => '3gp',
+        'application/pdf' => 'pdf', 'application/msword' => 'doc', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx',
+        'application/vnd.ms-excel' => 'xls', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => 'xlsx',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation' => 'pptx', 'application/zip' => 'zip', 'text/plain' => 'txt', 'image/vnd.dwg' => 'dwg', 'application/acad' => 'dwg'];
+    public const MEDIA_MAX = 15 * 1024 * 1024;
+    private const MEDIA_RE = '#^\d{4}/\d{2}/[a-f0-9]{32}\.[a-z0-9]+$#';
+
+    /** Pure: what the CRM shows/sends for a file type. */
+    public static function kindOf(string $mime): string
+    {
+        return match (true) { str_starts_with($mime, 'image/') && $mime !== 'image/vnd.dwg' => 'imagem', str_starts_with($mime, 'audio/') => 'audio', str_starts_with($mime, 'video/') => 'video', default => 'documento' };
+    }
+
+    public static function mediaFile(string $rel): ?string
+    {
+        $f = storage_path('wa/') . $rel;
+        return preg_match(self::MEDIA_RE, $rel) && is_file($f) ? $f : null;
+    }
+
+    /** Moves a local file (upload or download) into storage. Returns [relative path, mime] or null if the type isn't allowed. */
+    public static function keep(string $tmp, bool $uploaded): ?array
+    {
+        $mime = (string) (new \finfo(FILEINFO_MIME_TYPE))->file($tmp);
+        if (!isset(self::MEDIA[$mime]) || filesize($tmp) > self::MEDIA_MAX || filesize($tmp) === 0) return null;
+        $rel = date('Y/m/') . bin2hex(random_bytes(16)) . '.' . self::MEDIA[$mime];
+        $dest = storage_path('wa/') . $rel;
+        if (!is_dir(dirname($dest))) mkdir(dirname($dest), 0750, true);
+        if (!($uploaded ? move_uploaded_file($tmp, $dest) : rename($tmp, $dest))) return null;
+        return [$rel, $mime];
+    }
+
+    private static function api(string $path, array $body, int $timeout = 20): ?array
+    {
+        $ch = curl_init(self::base() . $path);
+        curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_POST => true, CURLOPT_TIMEOUT => $timeout, CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'Accept: application/json', 'token: ' . env('DROPESTORE_TOKEN', '')],
+            CURLOPT_POSTFIELDS => json_encode($body, JSON_UNESCAPED_UNICODE)]);
+        $raw = (string) curl_exec($ch);
+        $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        $r = json_decode($raw, true);
+        if ($code < 200 || $code >= 300 || empty($r['success'])) { error_log("whatsapp $path failed: HTTP $code " . mb_substr($raw, 0, 300)); return is_array($r) ? $r + ['_http' => $code] : ['_http' => $code]; }
+        return $r;
+    }
+
+    /** Downloads the media of a received message (DROPE /message/download → fileURL, valid 2 days) and keeps it. Audio comes as MP3. */
+    public static function fetchMedia(string $providerId): ?array
+    {
+        if (self::driver() !== 'drope' || $providerId === '') return null;
+        $r = self::api('/message/download', ['id' => $providerId, 'generate_mp3' => true]);
+        $url = (string) ($r['data']['fileURL'] ?? $r['fileURL'] ?? '');
+        if (!str_starts_with($url, 'https://')) return null;
+        $tmp = tempnam(sys_get_temp_dir(), 'wa');
+        $fh = fopen($tmp, 'wb');
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [CURLOPT_FILE => $fh, CURLOPT_TIMEOUT => 60, CURLOPT_FOLLOWLOCATION => true, CURLOPT_MAXREDIRS => 3, CURLOPT_MAXFILESIZE => self::MEDIA_MAX, CURLOPT_PROTOCOLS => CURLPROTO_HTTPS]);
+        $ok = curl_exec($ch) && curl_getinfo($ch, CURLINFO_HTTP_CODE) === 200;
+        curl_close($ch); fclose($fh);
+        $kept = $ok ? self::keep($tmp, false) : null;
+        if (!$kept) @unlink($tmp);
+        return $kept;
+    }
+
+    /** Sends a stored file (base64; the route accepts up to 20 MB). */
+    public static function sendMedia(string $phone, string $rel, string $mime, ?string $name, string $caption): array
+    {
+        if (self::driver() === 'teste') return ['ok' => true, 'id' => 'teste-' . bin2hex(random_bytes(8)), 'error' => null];
+        if (self::driver() !== 'drope') return ['ok' => false, 'id' => null, 'error' => 'WhatsApp não conectado.'];
+        $file = self::mediaFile($rel);
+        if (!$file) return ['ok' => false, 'id' => null, 'error' => 'Arquivo não encontrado.'];
+        $type = ['imagem' => 'image', 'audio' => 'audio', 'video' => 'video', 'documento' => 'document'][self::kindOf($mime)];
+        if ($type === 'video' && $mime !== 'video/mp4') $type = 'document'; // DROPE: video only MP4
+        if ($type === 'image' && $mime === 'image/gif') $type = 'document';
+        $body = ['number' => ltrim($phone, '+'), 'type' => $type, 'file' => base64_encode((string) file_get_contents($file)), 'mimetype' => $mime, 'readchat' => true, 'track_source' => 'crm'];
+        if ($caption !== '' && $type !== 'audio') $body['text'] = $caption;
+        if ($type === 'document') $body['docName'] = $name ?: basename($file);
+        $r = self::api('/send/media', $body, 60);
+        if (!empty($r['success'])) return ['ok' => true, 'id' => isset($r['data']['messageid']) ? mb_substr((string) $r['data']['messageid'], 0, 120) : null, 'error' => null];
+        $http = (int) ($r['_http'] ?? 0);
+        $why = ['DEVICE_DISCONNECTED' => 'O número está desconectado da DROPE. Leia o QR Code no painel.', 'TOKEN_INVALID' => 'Token da DROPE inválido.', 'PAYLOAD_TOO_LARGE' => 'Arquivo grande demais para o WhatsApp.', 'RATE_LIMITED' => 'Muitas mensagens seguidas. Tente em alguns segundos.'][$r['code'] ?? ''] ?? null;
+        return ['ok' => false, 'id' => null, 'error' => $why ?? ($http ? "O WhatsApp recusou o arquivo (HTTP $http)." : 'Sem resposta do WhatsApp.')];
+    }
+
     /**
      * Stores one parsed message: chat upsert, auto-link to a client with the same number, dedupe by provider id,
      * unread counter and bell (new chat, or chat going from 0 to 1 unread). Returns the chat id, or null for a duplicate.
@@ -152,8 +239,8 @@ final class WhatsApp
         }
         $at = $m['at'] && abs($m['at'] - time()) < 86400 * 30 ? date('Y-m-d H:i:s', $m['at']) : date('Y-m-d H:i:s');
         $body = $m['text'] !== '' ? $m['text'] : self::label($m['kind']);
-        $ins = Db::q('INSERT IGNORE INTO wa_messages (chat_id, provider_id, from_me, body, kind, status, created_at) VALUES (?,?,?,?,?,?,?)',
-            [$chat['id'], $m['id'], $m['from_me'] ? 1 : 0, $body, $m['kind'], $m['from_me'] ? 'enviada' : 'recebida', $at]);
+        $ins = Db::q('INSERT IGNORE INTO wa_messages (chat_id, provider_id, from_me, body, kind, media_name, status, created_at) VALUES (?,?,?,?,?,?,?,?)',
+            [$chat['id'], $m['id'], $m['from_me'] ? 1 : 0, $body, $m['kind'], $m['file'] ?? null, $m['from_me'] ? 'enviada' : 'recebida', $at]);
         if ($ins->rowCount() === 0) return null;
         $preview = mb_substr(($m['from_me'] ? 'Você: ' : '') . preg_replace('/\s+/', ' ', $body), 0, 160);
         Db::q('UPDATE wa_chats SET last_message_at = ?, last_preview = ?, unread = IF(?, 0, unread + 1), name = COALESCE(name, ?) WHERE id = ?',

@@ -114,6 +114,7 @@ $r->post('/api/event', [ApiController::class, 'event']);
 $r->post('/api/whatsapp/{token}', [WhatsAppController::class, 'webhook']);
 $r->get('/whatsapp', [WhatsAppController::class, 'index']);
 $r->get('/whatsapp/{id}', [WhatsAppController::class, 'show']);
+$r->get('/whatsapp/midia/{id}', [WhatsAppController::class, 'media']);
 $r->get('/whatsapp/{id}/mensagens', [WhatsAppController::class, 'poll']);
 $r->post('/whatsapp/{id}/enviar', [WhatsAppController::class, 'send']);
 

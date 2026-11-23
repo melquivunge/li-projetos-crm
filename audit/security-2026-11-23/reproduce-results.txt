@@ -1,0 +1,6 @@
+CONFIRMED: Client deletion broadens WhatsApp visibility and retains messages
+CONFIRMED: Old uid session remains valid after password hash change
+CONFIRMED: Missing explicit roles grants commercial and designer roles
+CONFIRMED: Public delivery token remains valid for cancelled project
+CONFIRMED: Redirect allowlist accepts slash-backslash external URL form
+5 synthetic checks passed; no persistent data modified.
