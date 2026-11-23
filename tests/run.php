@@ -112,5 +112,13 @@ $ok(Rev::classify('revisao', 0, 2) === [false, 1, 'aberta'] && Rev::classify('re
 $ok(Rev::classify('escopo', 0, 2) === [true, null, 'aguardando_aprovacao'] && Rev::classify('correcao', 9, 2) === [false, null, 'aberta'], 'escopo sempre extra; correção nunca');
 $ok(!Rev::canStart(['status' => 'aguardando_aprovacao']) && Rev::canStart(['status' => 'aberta']) && !Rev::canStart(['status' => 'concluida']), 'só começa sem aprovação pendente');
 
+use App\Brand as Mk;
+$ok(Mk::pairs("10+ | anos\n\n50+|projetos\nSó valor") === [['10+', 'anos'], ['50+', 'projetos'], ['Só valor', '']], 'marca: linhas "valor | texto"');
+$ok(Mk::initials('Iata de Almeida') === 'IA' && Mk::initials('Ana') === 'A' && Mk::initials('Ló') === 'L', 'marca: iniciais');
+$ok(Mk::validColor('#1a5fb4') === '#1A5FB4' && Mk::validColor('red') === null && Mk::validColor('#12345') === null && Mk::validColor('#12345g') === null, 'marca: cor válida só #RRGGBB');
+$ok(Mk::contrast('#000000', '#FFFFFF') === 21.0 && Mk::contrast('#866628', '#FFFDF9') > 4.5 && Mk::contrast('#F5D76E', '#FFFDF9') < 4.5, 'marca: contraste WCAG (avisa cor clara demais)');
+$pl = Mk::palette('#1A5FB4');
+$ok($pl['accent'] === '#1A5FB4' && Mk::contrast($pl['accent_strong'], '#FFFFFF') > Mk::contrast('#1A5FB4', '#FFFFFF') && Mk::contrast($pl['accent_soft'], '#FFFFFF') < 1.5 && Mk::mix('#000000', '#FFFFFF', 0.5) === '#808080', 'marca: tons derivados da cor');
+
 echo $fail ? "\n$fail falha(s)\n" : "\nTudo certo\n";
 exit($fail ? 1 : 0);

@@ -129,7 +129,7 @@ final class FinanceController
         if ($channel === 'email') {
             if (!$i['email']) { flash('O cliente não tem e-mail cadastrado.', 'danger'); self::back($i); }
             $subject = (Finance::daysLate($i['due_date'], date('Y-m-d')) > 0 ? 'Parcela em aberto · ' : 'Lembrete de pagamento · ') . $i['project_title'];
-            if (Mail::send($i['email'], $i['client_name'], $subject, $text . "\n\nEquipe LI Projetos") !== null) { flash('Não foi possível enviar o e-mail agora. Tente pelo WhatsApp.', 'danger'); self::back($i); }
+            if (Mail::send($i['email'], $i['client_name'], $subject, $text . "\n\nEquipe " . \App\Brand::name()) !== null) { flash('Não foi possível enviar o e-mail agora. Tente pelo WhatsApp.', 'danger'); self::back($i); }
         }
         Db::q('UPDATE installments SET reminders = reminders + 1, last_reminder_at = NOW() WHERE id = ?', [$i['id']]);
         Clients::event((int) $i['client_id'], 'cobranca', 'Cobrança por ' . ($channel === 'email' ? 'e-mail' : 'WhatsApp') . ': ' . money((float) $i['amount']) . ' com vencimento em ' . date('d/m/Y', strtotime($i['due_date'])) . ' · ' . $i['project_title'] . '.');

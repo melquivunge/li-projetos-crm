@@ -248,8 +248,8 @@ final class ProposalController
         [$p, $c] = self::load((int) $id);
         if (!$c['email']) { flash('O cliente não tem e-mail cadastrado.', 'danger'); redirect('/propostas/' . $p['id']); }
         $first = explode(' ', $c['name'])[0];
-        $body = "Olá, $first!\n\nSegue a proposta \"{$p['title']}\" no valor de " . money((float) $p['total']) . ", válida até " . date('d/m/Y', strtotime($p['valid_until'])) . ".\n\nVocê pode ver e responder pelo link:\n" . self::publicUrl($p) . "\n\nO PDF está em anexo. Qualquer dúvida, é só responder este e-mail ou chamar no WhatsApp.\n\nEquipe LI Projetos";
-        if (Mail::send($c['email'], $c['name'], 'Proposta LI Projetos: ' . $p['title'], $body, [[self::renderPdf($p, $c), 'proposta-' . (int) $p['id'] . '.pdf', 'application/pdf']]) !== null) {
+        $body = "Olá, $first!\n\nSegue a proposta \"{$p['title']}\" no valor de " . money((float) $p['total']) . ", válida até " . date('d/m/Y', strtotime($p['valid_until'])) . ".\n\nVocê pode ver e responder pelo link:\n" . self::publicUrl($p) . "\n\nO PDF está em anexo. Qualquer dúvida, é só responder este e-mail ou chamar no WhatsApp.\n\nEquipe " . \App\Brand::name();
+        if (Mail::send($c['email'], $c['name'], 'Proposta ' . \App\Brand::name() . ': ' . $p['title'], $body, [[self::renderPdf($p, $c), 'proposta-' . (int) $p['id'] . '.pdf', 'application/pdf']]) !== null) {
             flash('Não foi possível enviar o e-mail agora. Tente de novo ou envie pelo WhatsApp.', 'danger');
             redirect('/propostas/' . $p['id']);
         }
@@ -261,7 +261,7 @@ final class ProposalController
     /** Pure: WhatsApp text for a proposal. */
     public static function whatsappText(array $p, string $clientName, string $url): string
     {
-        return 'Olá, ' . explode(' ', trim($clientName))[0] . '! Aqui é da LI Projetos. Segue a sua proposta "' . $p['title'] . '", no valor de '
+        return 'Olá, ' . explode(' ', trim($clientName))[0] . '! Aqui é da ' . \App\Brand::name() . '. Segue a sua proposta "' . $p['title'] . '", no valor de '
             . money((float) $p['total']) . ', válida até ' . date('d/m/Y', strtotime($p['valid_until'])) . ":\n" . $url;
     }
 

@@ -112,3 +112,24 @@ if (document.querySelector('[data-live]')) {
 
 // Approval link field: select all on focus
 document.querySelectorAll(".deliv-link").forEach((i) => i.addEventListener("focus", () => i.select()));
+
+// Brand colour swatches (CSP forbids style attributes; setting el.style from JS is fine)
+document.querySelectorAll("[data-color]").forEach((el) => { el.style.background = el.dataset.color; });
+
+// Installable app (PWA): service worker + "Instalar o app" (Android/desktop prompt, iPhone instructions)
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+(() => {
+  const btn = document.querySelector('[data-install]');
+  if (!btn) return;
+  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  if (standalone) return;
+  let deferred = null;
+  window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferred = e; btn.hidden = false; });
+  window.addEventListener('appinstalled', () => { btn.hidden = true; deferred = null; });
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (ios) btn.hidden = false;
+  btn.addEventListener('click', async () => {
+    if (deferred) { deferred.prompt(); await deferred.userChoice; deferred = null; btn.hidden = true; }
+    else if (ios) document.getElementById('iosInstall')?.showModal();
+  });
+})();

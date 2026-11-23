@@ -6,7 +6,7 @@ use App\{Auth, Audit, Clients, Db, Notify};
 
 final class ProfileController
 {
-    public const THEMES = ['brand' => 'LI Projetos', 'light' => 'Claro', 'dark' => 'Escuro'];
+    public const THEMES = ['brand' => 'Marca', 'light' => 'Claro', 'dark' => 'Escuro'];
 
     public static function show(): void
     {

@@ -56,7 +56,7 @@ final class Finance
         $what = 'a ' . mb_strtolower($desc) . ($count > 1 && !str_contains($desc, ' de ') ? " ({$i['number']} de $count)" : '')
               . ' do projeto ' . $project . ', no valor de ' . money((float) $i['amount']);
         $when = date('d/m', strtotime($i['due_date']));
-        $text = "Olá, $first! Tudo bem? Aqui é da LI Projetos. ";
+        $text = "Olá, $first! Tudo bem? Aqui é da " . Brand::name() . ". ";
         $text .= $late < 0 ? "Passando para lembrar que $what vence em $when."
                : ($late === 0 ? "Passando para lembrar que $what vence hoje ($when)."
                : "Notamos que $what, com vencimento em $when, ainda está em aberto. Se já pagou, pode desconsiderar e nos mandar o comprovante, por favor.");

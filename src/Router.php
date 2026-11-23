@@ -14,7 +14,7 @@ final class Router
         $path = rtrim(parse_url($uri, PHP_URL_PATH) ?: '/', '/') ?: '/';
         foreach ($this->routes[$method] ?? [] as $pattern => $h) {
             // {token} = 64 hex chars (public proposal links); any other {param} = numeric id
-            $regex = '#^' . preg_replace_callback('#\{(\w+)\}#', fn($p) => "(?P<{$p[1]}>" . ($p[1] === 'token' ? '[a-f0-9]{64}' : '[0-9]+') . ')', $pattern) . '$#';
+            $regex = '#^' . preg_replace_callback('#\{(\w+)\}#', fn($p) => "(?P<{$p[1]}>" . ($p[1] === 'token' ? '[a-f0-9]{64}' : ($p[1] === 'file' ? '[A-Za-z0-9._-]{1,80}' : '[0-9]+')) . ')', $pattern) . '$#';
             if (preg_match($regex, $path, $m)) {
                 // Every browser POST needs a CSRF token; /api/* has its own key + origin checks
                 if ($method === 'POST' && !str_starts_with($path, '/api/')) Csrf::check();

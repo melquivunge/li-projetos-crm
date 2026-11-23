@@ -98,7 +98,7 @@ final class RevisionController
         Clients::event((int) $p['client_id'], 'whatsapp', 'Entregável "' . $d['title'] . '" enviado para aprovação.');
         Audit::log('deliverable.send', 'deliverable', (int) $d['id']);
         if (!$c['whatsapp']) { flash('O cliente não tem WhatsApp. Copie o link: ' . self::publicUrl($d)); self::back((int) $p['id'], 'entregas'); }
-        $text = 'Olá, ' . explode(' ', trim($c['name']))[0] . '! Aqui é da LI Projetos. "' . $d['title'] . '", do projeto ' . $p['title'] . ", está pronto para você ver. Pelo link você aprova ou pede ajustes:\n" . self::publicUrl($d);
+        $text = 'Olá, ' . explode(' ', trim($c['name']))[0] . '! Aqui é da ' . \App\Brand::name() . '. "' . $d['title'] . '", do projeto ' . $p['title'] . ", está pronto para você ver. Pelo link você aprova ou pede ajustes:\n" . self::publicUrl($d);
         redirect('https://wa.me/' . ltrim($c['whatsapp'], '+') . '?text=' . rawurlencode($text));
     }
 

@@ -12,7 +12,7 @@ $sec = 0; $n = function () use (&$sec) { return sprintf('%02d', ++$sec); };
     <img class="doc-cover-img" src="/assets/login-render.webp" alt="" width="1200" height="900">
     <div class="doc-cover-in">
       <div class="d-flex justify-content-between align-items-start gap-3">
-        <img src="/assets/logo-li-projetos-light.svg" alt="LI Projetos" width="170" height="40" class="doc-logo">
+        <img src="<?= e(App\Brand::logoUrl(true)) ?>" alt="<?= e(App\Brand::name()) ?>" height="40" class="doc-logo">
         <span class="doc-ver">Proposta nº <?= (int) $p['id'] ?><?= (int) ($p['version'] ?? 1) > 1 ? ' · versão ' . (int) $p['version'] : '' ?></span>
       </div>
       <div>
@@ -29,13 +29,14 @@ $sec = 0; $n = function () use (&$sec) { return sprintf('%02d', ++$sec); };
 
   <section class="doc-sec doc-about">
     <h2><span><?= $n() ?></span>Sobre o estúdio</h2>
-    <p class="doc-lead">A LI Projetos é um estúdio de arquitetura e design de interiores com atendimento 100% online, para o Distrito Federal e Goiânia. Do primeiro traço ao detalhamento executivo, com reuniões por videochamada no seu horário.</p>
-    <dl class="doc-facts"><div><dt>10+</dt><dd>anos de estúdio</dd></div><div><dt>50+</dt><dd>projetos entregues</dd></div><div><dt>15.000</dt><dd>m² projetados</dd></div></dl>
+    <p class="doc-lead"><?= e(App\Brand::get('company_about')) ?></p>
+    <dl class="doc-facts"><?php foreach (App\Brand::pairs(App\Brand::get('company_facts')) as [$fv, $fl]): ?><div><dt><?= e($fv) ?></dt><dd><?= e($fl) ?></dd></div><?php endforeach; ?></dl>
+    <?php $people = App\Brand::pairs(App\Brand::get('company_people')); if ($people): ?>
     <div class="doc-founders">
-      <div><span class="doc-ini" aria-hidden="true">IA</span><p><b>Iata de Almeida</b><span>Interiores e plantas</span></p></div>
-      <div><span class="doc-ini" aria-hidden="true">LA</span><p><b>Larissa de Almeida</b><span>Arquitetura e projeto executivo</span></p></div>
+      <?php foreach ($people as [$pn, $pr]): ?><div><span class="doc-ini" aria-hidden="true"><?= e(App\Brand::initials($pn)) ?></span><p><b><?= e($pn) ?></b><span><?= e($pr) ?></span></p></div><?php endforeach; ?>
     </div>
-    <p class="small text-body-secondary mb-0">Registro no CAU/DF.</p>
+    <?php endif; ?>
+    <?php if (App\Brand::get('company_registry')): ?><p class="small text-body-secondary mb-0"><?= e(App\Brand::get('company_registry')) ?>.</p><?php endif; ?>
   </section>
 
   <?php if (!empty($p['project_summary'])): ?>
@@ -103,5 +104,5 @@ $sec = 0; $n = function () use (&$sec) { return sprintf('%02d', ++$sec); };
       <li><b>O projeto começa</b><span>Seguimos o cronograma acima, com as revisões combinadas em cada etapa.</span></li>
     </ol>
   </section>
-  <footer class="doc-foot"><span>LI Projetos · Arquitetura e interiores · Atendimento online no DF e em Goiânia · Registro no CAU/DF</span><span>WhatsApp +55 (61) 99241-4304 · instagram.com/li.projetos</span></footer>
+  <footer class="doc-foot"><span><?= e(App\Brand::footer(true)) ?></span><span><?= e(implode(' · ', array_filter([App\Brand::get('company_whatsapp') ? 'WhatsApp ' . App\Brand::get('company_whatsapp') : '', App\Brand::get('company_instagram') ? 'instagram.com/' . App\Brand::get('company_instagram') : '']))) ?></span></footer>
 </article>

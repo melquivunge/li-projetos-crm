@@ -4,7 +4,7 @@ declare(strict_types=1);
 require dirname(__DIR__) . '/src/bootstrap.php';
 
 use App\Router;
-use App\Controllers\{ApiController, BriefingController, AuthController, ClientController, OpportunityController, TaskController, ProfileController, ProposalController, DashboardController, FinanceController, ProjectController, RevisionController, UserController};
+use App\Controllers\{ApiController, BriefingController, AuthController, ClientController, OpportunityController, TaskController, ProfileController, ProposalController, DashboardController, BrandController, FinanceController, ProjectController, RevisionController, UserController};
 
 $r = new Router();
 $r->get('/login', [AuthController::class, 'form']);
@@ -38,6 +38,11 @@ $r->post('/arquivos/{id}/excluir', [BriefingController::class, 'removeFile']);
 $r->get('/b/{token}', [BriefingController::class, 'publicShow']);
 $r->post('/b/{token}', [BriefingController::class, 'publicSave']);
 $r->get('/b/{token}/arquivos/{id}', [BriefingController::class, 'publicFile']);
+$r->get('/empresa', [BrandController::class, 'show']);
+$r->post('/empresa', [BrandController::class, 'save']);
+$r->get('/marca/logo/{file}', [BrandController::class, 'logo']);
+$r->get('/marca.css', [BrandController::class, 'css']);
+$r->get('/manifest.webmanifest', [BrandController::class, 'manifest']);
 $r->get('/financeiro', [FinanceController::class, 'index']);
 $r->post('/financeiro/config', [FinanceController::class, 'settings']);
 $r->post('/parcelas/{id}/pagar', [FinanceController::class, 'pay']);

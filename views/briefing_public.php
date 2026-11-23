@@ -4,7 +4,7 @@
     <header class="doc-cover doc-cover-sm">
       <img class="doc-cover-img" src="/assets/login-render.webp" alt="" width="1200" height="900">
       <div class="doc-cover-in">
-        <img src="/assets/logo-li-projetos-light.svg" alt="LI Projetos" width="170" height="40" class="doc-logo">
+        <img src="<?= e(App\Brand::logoUrl(true)) ?>" alt="<?= e(App\Brand::name()) ?>" height="40" class="doc-logo">
         <div><h1 class="doc-title">Briefing do seu projeto</h1><p class="doc-for"><?= e($first) ?>, conte como você imagina o projeto. Leva uns 5 minutos.</p></div>
       </div>
     </header>
@@ -33,6 +33,6 @@
       </section>
       <?php endif; ?>
     </form>
-    <footer class="doc-foot"><span>LI Projetos · Arquitetura e interiores · Atendimento online no DF e em Goiânia</span><span>WhatsApp +55 (61) 99241-4304</span></footer>
+    <footer class="doc-foot"><span><?= e(App\Brand::footer()) ?></span><span><?= e(implode(' · ', array_filter([App\Brand::get('company_whatsapp') ? 'WhatsApp ' . App\Brand::get('company_whatsapp') : '', App\Brand::get('company_instagram') ? 'instagram.com/' . App\Brand::get('company_instagram') : '']))) ?></span></footer>
   </article>
 </div>

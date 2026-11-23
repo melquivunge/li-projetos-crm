@@ -20,7 +20,7 @@ final class Mail
             if (env('SMTP_USER')) { $m->SMTPAuth = true; $m->Username = (string) env('SMTP_USER'); $m->Password = (string) env('SMTP_PASS'); }
             $m->SMTPSecure = (string) env('SMTP_SECURE', '');
             $m->CharSet = 'UTF-8';
-            $m->setFrom((string) env('MAIL_FROM'), (string) env('MAIL_FROM_NAME', 'LI Projetos'));
+            $m->setFrom((string) env('MAIL_FROM'), (string) (env('MAIL_FROM_NAME') ?: Brand::name()));
             $m->addAddress($to, $name);
             $m->Subject = $subject;
             $m->Body = $body;

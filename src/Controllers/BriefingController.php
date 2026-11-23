@@ -70,7 +70,7 @@ final class BriefingController
         Clients::event((int) $c['id'], 'whatsapp', 'Briefing enviado ao cliente.');
         Audit::log('briefing.send', 'briefing', (int) $b['id']);
         if (!$c['whatsapp']) { flash('Marcado como enviado. Copie o link e envie ao cliente.'); redirect('/briefings/' . $b['id']); }
-        $text = 'Olá, ' . explode(' ', trim($c['name']))[0] . '! Aqui é da LI Projetos. Para prepararmos o seu projeto, responda este briefing (leva uns 5 minutos, e você pode anexar fotos e plantas): ' . self::url($b);
+        $text = 'Olá, ' . explode(' ', trim($c['name']))[0] . '! Aqui é da ' . \App\Brand::name() . '. Para prepararmos o seu projeto, responda este briefing (leva uns 5 minutos, e você pode anexar fotos e plantas): ' . self::url($b);
         redirect('https://wa.me/' . ltrim($c['whatsapp'], '+') . '?text=' . rawurlencode($text));
     }
 

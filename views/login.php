@@ -1,6 +1,6 @@
 <div class="auth">
   <section class="auth-form">
-    <a href="/login" class="d-inline-block"><img src="/assets/logo-li-projetos.svg" alt="LI Projetos" width="190" height="44" class="auth-logo"></a>
+    <a href="/login" class="d-inline-block"><img src="<?= e(App\Brand::logoUrl(false)) ?>" alt="<?= e(App\Brand::name()) ?>" height="44" class="auth-logo"></a>
     <div class="inner py-5">
       <h1 class="auth-title">Boas-vindas</h1>
       <p class="auth-sub">Entre para ver os leads, o funil e as propostas do estúdio.</p>
@@ -22,14 +22,12 @@
       </form>
       <p class="auth-foot mt-4 mb-0">Esqueceu a senha? Peça a uma das sócias para redefinir em Usuários.</p>
     </div>
-    <p class="auth-foot mb-0">LI Projetos · Arquitetura e interiores · DF e Goiânia</p>
+    <p class="auth-foot mb-0"><?= e(App\Brand::footer()) ?></p>
   </section>
   <aside class="auth-art" aria-hidden="true">
     <img src="/assets/login-render.webp" alt="" width="1200" height="900">
     <div class="auth-facts">
-      <div><strong>10+</strong><span>anos de estúdio</span></div>
-      <div><strong>50+</strong><span>projetos entregues</span></div>
-      <div><strong>15.000</strong><span>m² projetados</span></div>
+      <?php foreach (array_slice(App\Brand::pairs(App\Brand::get('company_facts')), 0, 3) as [$fv, $fl]): ?><div><strong><?= e($fv) ?></strong><span><?= e($fl) ?></span></div><?php endforeach; ?>
     </div>
   </aside>
 </div>

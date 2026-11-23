@@ -1,5 +1,5 @@
 <?php
-use App\{Auth, Clients, Db, Notify};
+use App\{Auth, Brand, Clients, Db, Notify};
 use App\Controllers\TaskController;
 use App\Controllers\ProfileController;
 $me = Auth::user();
@@ -26,11 +26,18 @@ $greet = $hour < 12 ? 'Bom dia' : ($hour < 18 ? 'Boa tarde' : 'Boa noite');
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="<?= $theme === 'dark' ? '#0D0D0C' : ($theme === 'light' ? '#F4F5F7' : '#F3EEE5') ?>">
-<title>CRM LI Projetos</title>
+<title>CRM <?= e(Brand::name()) ?></title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/assets/app/icon-180.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="<?= e(App\Brand::name()) ?>">
 <link rel="icon" href="/assets/logo-icon-li.svg" type="image/svg+xml">
 <link rel="preload" href="/assets/fonts/plus-jakarta-sans-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/assets/bootstrap/bootstrap.min.css">
 <link rel="stylesheet" href="/assets/app.css">
+<?php if (Brand::css() !== ''): ?><link rel="stylesheet" href="/marca.css?v=<?= substr(md5(Brand::css()), 0, 8) ?>"><?php endif; ?>
 </head>
 <body>
 <?php if (env('APP_ENV') === 'staging'): ?><div class="staging-bar" role="note">Ambiente de testes · dados fictícios · e-mails não são enviados</div><?php endif; ?>
@@ -39,7 +46,7 @@ $greet = $hour < 12 ? 'Bom dia' : ($hour < 18 ? 'Boa tarde' : 'Boa noite');
   <aside class="rail offcanvas-lg offcanvas-start" tabindex="-1" id="rail" aria-label="Menu principal">
     <div class="offcanvas-body">
       <div class="d-flex align-items-center justify-content-between">
-        <a class="rail-logo" href="/"><img src="/assets/<?= $theme === 'light' ? 'logo-li-projetos.svg' : 'logo-li-projetos-light.svg' ?>" alt="LI Projetos" width="150" height="34"></a>
+        <a class="rail-logo" href="/"><img src="<?= e(Brand::logoUrl($theme !== 'light')) ?>" alt="<?= e(Brand::name()) ?>" height="34" class="rail-logo-img"></a>
         <button type="button" class="btn-close d-lg-none" data-bs-dismiss="offcanvas" data-bs-target="#rail" aria-label="Fechar menu"></button>
       </div>
       <nav>
@@ -62,11 +69,13 @@ $greet = $hour < 12 ? 'Bom dia' : ($hour < 18 ? 'Boa tarde' : 'Boa noite');
         <p class="rail-group">Gestão</p>
         <ul class="rail-nav">
           <li><a class="rail-link" href="/precos"<?= $cur('/precos') ?>><?= icon('tag') ?>Tabela de preços</a></li>
+          <li><a class="rail-link" href="/empresa"<?= $cur('/empresa') ?>><?= icon('palette') ?>Empresa</a></li>
           <li><a class="rail-link" href="/usuarios"<?= $cur('/usuarios') ?>><?= icon('shield') ?>Usuários</a></li>
         </ul>
       </nav>
       <?php endif; ?>
       <?php if ($me): ?>
+      <button class="rail-link rail-install" type="button" data-install hidden><?= icon('plus') ?>Instalar o app</button>
       <a class="rail-user" href="/perfil"><?= avatar($me, 40) ?><span class="text-truncate"><strong class="d-block text-truncate"><?= e($me['name']) ?></strong><small class="text-truncate"><?= e($me['job_title'] ?: implode(' · ', array_map(fn($r) => explode(' ', Auth::ROLES[$r])[0], Auth::roles()))) ?></small></span></a>
       <?php endif; ?>
     </div>
@@ -127,5 +136,12 @@ $greet = $hour < 12 ? 'Bom dia' : ($hour < 18 ? 'Boa tarde' : 'Boa noite');
 </div>
 <script src="/assets/bootstrap/bootstrap.bundle.min.js"></script>
 <script src="/assets/app.js"></script>
+<dialog id="iosInstall" class="lost-dialog" aria-labelledby="iosInstallTitle">
+  <form method="dialog" class="p-4">
+    <h2 class="h5" id="iosInstallTitle">Instalar no iPhone</h2>
+    <ol class="mb-3 ps-3"><li>Abra este site no <b>Safari</b>.</li><li>Toque em <b>Compartilhar</b> (o quadrado com a seta para cima).</li><li>Escolha <b>Adicionar à Tela de Início</b> e confirme.</li></ol>
+    <div class="text-end"><button class="btn btn-dark">Entendi</button></div>
+  </form>
+</dialog>
 </body>
 </html>

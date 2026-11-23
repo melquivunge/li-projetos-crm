@@ -530,3 +530,19 @@ progress.prog::-moz-progress-bar { background: var(--accent); border-radius: 999
 
 /* Staging */
 .staging-bar { position: sticky; top: 0; z-index: 1100; background: #7A2E0B; color: #FFF7ED; text-align: center; font-size: .8125rem; font-weight: 600; padding: .375rem 1rem; letter-spacing: .01em; }
+
+/* ---- Empresa (marca) ---- */
+.rail-logo-img { height: 34px; width: auto; max-width: 180px; object-fit: contain; }
+.auth-logo, .doc-logo { width: auto; max-width: 220px; object-fit: contain; }
+.logo-prev { border: 1px solid var(--line); border-radius: .75rem; padding: 1rem; display: grid; place-items: center; min-height: 84px; background: #FFFFFF; }
+.logo-prev.is-dark { background: #1A1918; border-color: #1A1918; }
+.logo-prev img { max-height: 48px; max-width: 100%; width: auto; }
+.swatches { display: flex; flex-wrap: wrap; gap: .75rem; font-size: .75rem; color: var(--muted); }
+.swatches span { display: inline-flex; align-items: center; gap: .375rem; }
+.swatches i { width: 22px; height: 22px; border-radius: 6px; border: 1px solid var(--line); display: inline-block; }
+.form-control-color { width: 56px; height: 44px; padding: .25rem; }
+
+/* PWA */
+.rail-install { width: 100%; border: 0; background: transparent; text-align: left; margin-bottom: .5rem; }
+.offline { min-height: 100vh; display: grid; place-content: center; justify-items: center; text-align: center; padding: 2rem; max-width: 420px; margin: 0 auto; }
+.offline img { border-radius: 18px; }
