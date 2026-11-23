@@ -128,3 +128,10 @@ function area(mixed $m2): string
 {
     return $m2 ? rtrim(rtrim(number_format((float) $m2, 2, ',', ''), '0'), ',') . ' m²' : '';
 }
+
+/** Static file URL with a version from its mtime: the host caches /assets for 7 days, so each deploy needs a new URL. */
+function asset(string $path): string
+{
+    $f = dirname(__DIR__) . '/public' . $path;
+    return $path . (is_file($f) ? '?v=' . filemtime($f) : '');
+}

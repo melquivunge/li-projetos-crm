@@ -36,7 +36,7 @@ $greet = $hour < 12 ? 'Bom dia' : ($hour < 18 ? 'Boa tarde' : 'Boa noite');
 <link rel="icon" href="/assets/logo-icon-li.svg" type="image/svg+xml">
 <link rel="preload" href="/assets/fonts/plus-jakarta-sans-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/assets/bootstrap/bootstrap.min.css">
-<link rel="stylesheet" href="/assets/app.css">
+<link rel="stylesheet" href="<?= asset('/assets/app.css') ?>">
 <?php if (Brand::css() !== ''): ?><link rel="stylesheet" href="/marca.css?v=<?= substr(md5(Brand::css()), 0, 8) ?>"><?php endif; ?>
 </head>
 <body>
@@ -136,7 +136,7 @@ $greet = $hour < 12 ? 'Bom dia' : ($hour < 18 ? 'Boa tarde' : 'Boa noite');
   </div>
 </div>
 <script src="/assets/bootstrap/bootstrap.bundle.min.js"></script>
-<script src="/assets/app.js"></script>
+<script src="<?= asset('/assets/app.js') ?>"></script>
 <dialog id="iosInstall" class="lost-dialog" aria-labelledby="iosInstallTitle">
   <form method="dialog" class="p-4">
     <h2 class="h5" id="iosInstallTitle">Instalar no iPhone</h2>
