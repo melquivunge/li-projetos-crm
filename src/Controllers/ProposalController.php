@@ -2,9 +2,8 @@
 declare(strict_types=1);
 namespace App\Controllers;
 
-use App\{Auth, Audit, Clients, Db, Notify, Opportunities, Pricing, Projects};
+use App\{Auth, Audit, Clients, Db, Mail, Notify, Opportunities, Pricing, Projects};
 use Dompdf\Dompdf;
-use PHPMailer\PHPMailer\PHPMailer;
 
 final class ProposalController
 {
@@ -248,24 +247,9 @@ final class ProposalController
         Auth::requirePerm('proposals');
         [$p, $c] = self::load((int) $id);
         if (!$c['email']) { flash('O cliente não tem e-mail cadastrado.', 'danger'); redirect('/propostas/' . $p['id']); }
-        $m = new PHPMailer(true);
-        try {
-            $m->isSMTP();
-            $m->Host = (string) env('SMTP_HOST');
-            $m->Port = (int) env('SMTP_PORT', '587');
-            $m->Timeout = 10; // shared hosting: no queue, fail fast
-            if (env('SMTP_USER')) { $m->SMTPAuth = true; $m->Username = (string) env('SMTP_USER'); $m->Password = (string) env('SMTP_PASS'); }
-            $m->SMTPSecure = (string) env('SMTP_SECURE', '');
-            $m->CharSet = 'UTF-8';
-            $m->setFrom((string) env('MAIL_FROM'), (string) env('MAIL_FROM_NAME', 'LI Projetos'));
-            $m->addAddress($c['email'], $c['name']);
-            $m->Subject = 'Proposta LI Projetos: ' . $p['title'];
-            $first = explode(' ', $c['name'])[0];
-            $m->Body = "Olá, $first!\n\nSegue a proposta \"{$p['title']}\" no valor de " . money((float) $p['total']) . ", válida até " . date('d/m/Y', strtotime($p['valid_until'])) . ".\n\nVocê pode ver e responder pelo link:\n" . self::publicUrl($p) . "\n\nO PDF está em anexo. Qualquer dúvida, é só responder este e-mail ou chamar no WhatsApp.\n\nEquipe LI Projetos";
-            $m->addStringAttachment(self::renderPdf($p, $c), 'proposta-' . (int) $p['id'] . '.pdf', PHPMailer::ENCODING_BASE64, 'application/pdf');
-            $m->send();
-        } catch (\Throwable $e) {
-            error_log('proposal mail: ' . $m->ErrorInfo);
+        $first = explode(' ', $c['name'])[0];
+        $body = "Olá, $first!\n\nSegue a proposta \"{$p['title']}\" no valor de " . money((float) $p['total']) . ", válida até " . date('d/m/Y', strtotime($p['valid_until'])) . ".\n\nVocê pode ver e responder pelo link:\n" . self::publicUrl($p) . "\n\nO PDF está em anexo. Qualquer dúvida, é só responder este e-mail ou chamar no WhatsApp.\n\nEquipe LI Projetos";
+        if (Mail::send($c['email'], $c['name'], 'Proposta LI Projetos: ' . $p['title'], $body, [[self::renderPdf($p, $c), 'proposta-' . (int) $p['id'] . '.pdf', 'application/pdf']]) !== null) {
             flash('Não foi possível enviar o e-mail agora. Tente de novo ou envie pelo WhatsApp.', 'danger');
             redirect('/propostas/' . $p['id']);
         }

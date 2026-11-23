@@ -44,6 +44,19 @@ foreach (Db::q("SELECT p.id, p.valid_until, c.name, c.owner_id FROM proposals p 
     foreach (array_unique(array_map('intval', $ids)) as $uid) $sent['propostas'] += (int) Notify::once($uid, $body, '/propostas/' . $r['id']);
 }
 
+// 3b. Parcelas: 3 dias antes, no dia e com 1, 7, 15 e 30 dias de atraso → financeiro + sócias (a cobrança ao cliente é um clique)
+$fin = Db::q("SELECT DISTINCT u.id FROM users u LEFT JOIN user_roles r ON r.user_id = u.id WHERE u.active = 1 AND (u.role = 'admin' OR r.role IN ('admin','financeiro'))")->fetchAll(PDO::FETCH_COLUMN);
+$sent['parcelas'] = 0;
+foreach (Db::q("SELECT i.id, i.amount, i.due_date, c.name FROM installments i JOIN clients c ON c.id = i.client_id JOIN projects p ON p.id = i.project_id
+                WHERE i.status = 'aberta' AND p.status <> 'cancelado' AND i.due_date BETWEEN CURDATE() - INTERVAL 30 DAY AND CURDATE() + INTERVAL 3 DAY") as $r) {
+    $m = App\Finance::milestone($r['due_date'], date('Y-m-d'));
+    if ($m === null) continue;
+    $v = money((float) $r['amount']);
+    $body = $m < 0 ? "Parcela de {$r['name']} ($v) vence em " . -$m . ' dias. Quer mandar um lembrete?'
+          : ($m === 0 ? "Parcela de {$r['name']} ($v) vence hoje." : "{$r['name']} está com $v em atraso há $m dia" . ($m > 1 ? 's' : '') . '. Cobrar?');
+    foreach ($fin as $uid) $sent['parcelas'] += (int) Notify::once((int) $uid, $body, '/financeiro?ver=' . ($m > 0 ? 'vencidas' : 'abertas'), 40);
+}
+
 // 4. Limpeza
 Db::q('DELETE FROM login_attempts WHERE attempted_at < NOW() - INTERVAL 1 DAY');
 Db::q('DELETE FROM api_rate WHERE window_start < NOW() - INTERVAL 1 DAY');

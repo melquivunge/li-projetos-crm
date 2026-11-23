@@ -50,6 +50,7 @@ $greet = $hour < 12 ? 'Bom dia' : ($hour < 18 ? 'Boa tarde' : 'Boa noite');
           <li><a class="rail-link" href="/clientes"<?= $is('/clientes') ? ' aria-current="page"' : '' ?>><?= icon('users') ?>Clientes</a></li>
           <li><a class="rail-link" href="/funil"<?= $cur('/funil') ?>><?= icon('columns') ?>Funil<?php if ($newLeads): ?><span class="count" title="Oportunidades novas"><?= $newLeads ?></span><?php endif; ?></a></li>
           <?php endif; ?>
+          <?php if (Auth::can('finance')): $od = (int) Db::q("SELECT COUNT(*) FROM installments WHERE status = 'aberta' AND due_date < CURDATE()")->fetchColumn(); ?><li><a class="rail-link" href="/financeiro"<?= $cur('/financeiro') ?>><?= icon('coins') ?>Financeiro<?php if ($od): ?><span class="count count-late" title="Parcelas vencidas"><?= $od ?></span><?php endif; ?></a></li><?php endif; ?>
           <?php if (Auth::can('projects')): ?><li><a class="rail-link" href="/projetos"<?= $is('/projetos') ? ' aria-current="page"' : '' ?>><?= icon('folder') ?>Projetos</a></li><?php endif; ?>
           <?php if (Auth::can('proposals')): ?><li><a class="rail-link" href="/propostas"<?= $is('/propostas') ? ' aria-current="page"' : '' ?>><?= icon('file') ?>Propostas</a></li><?php endif; ?>
           <li><a class="rail-link" href="/notificacoes"<?= $cur('/notificacoes') ?>><?= icon('bell') ?>Notificações<span class="count" data-live="unread"<?= $unread ? '' : ' hidden' ?>><?= $unread ?></span></a></li>

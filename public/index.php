@@ -4,7 +4,7 @@ declare(strict_types=1);
 require dirname(__DIR__) . '/src/bootstrap.php';
 
 use App\Router;
-use App\Controllers\{ApiController, BriefingController, AuthController, ClientController, OpportunityController, TaskController, ProfileController, ProposalController, DashboardController, ProjectController, UserController};
+use App\Controllers\{ApiController, BriefingController, AuthController, ClientController, OpportunityController, TaskController, ProfileController, ProposalController, DashboardController, FinanceController, ProjectController, UserController};
 
 $r = new Router();
 $r->get('/login', [AuthController::class, 'form']);
@@ -38,6 +38,15 @@ $r->post('/arquivos/{id}/excluir', [BriefingController::class, 'removeFile']);
 $r->get('/b/{token}', [BriefingController::class, 'publicShow']);
 $r->post('/b/{token}', [BriefingController::class, 'publicSave']);
 $r->get('/b/{token}/arquivos/{id}', [BriefingController::class, 'publicFile']);
+$r->get('/financeiro', [FinanceController::class, 'index']);
+$r->post('/financeiro/config', [FinanceController::class, 'settings']);
+$r->post('/parcelas/{id}/pagar', [FinanceController::class, 'pay']);
+$r->post('/parcelas/{id}/estornar', [FinanceController::class, 'reopen']);
+$r->post('/parcelas/{id}/cancelar', [FinanceController::class, 'cancel']);
+$r->post('/parcelas/{id}/cobrar', [FinanceController::class, 'remind']);
+$r->post('/parcelas/{id}', [FinanceController::class, 'update']);
+$r->post('/projetos/{id}/parcelas', [FinanceController::class, 'add']);
+$r->post('/projetos/{id}/despesas', [FinanceController::class, 'addExpense']);
 $r->get('/projetos', [ProjectController::class, 'index']);
 $r->get('/projetos/{id}', [ProjectController::class, 'show']);
 $r->post('/projetos/{id}', [ProjectController::class, 'update']);

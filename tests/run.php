@@ -86,5 +86,23 @@ $phs = [['id' => 1], ['id' => 2], ['id' => 3]];
 $ok(PJ::moveStatuses($phs, 2) === [1 => 'concluida', 2 => 'pendente', 3 => 'pendente'] && PJ::moveStatuses($phs, null) === [1 => 'concluida', 2 => 'concluida', 3 => 'concluida'] && PJ::moveStatuses($phs, 1)[1] === 'pendente', 'Kanban: mover conclui as anteriores e reabre as seguintes');
 $ok(App\Files::check('image/vnd.dwg', 5000) === null && App\Files::check('application/zip', 5000) !== null, 'upload aceita DWG');
 
+use App\Finance as Fin; use App\Controllers\FinanceController as FCT;
+$pl = Fin::plan('50% na assinatura + 50% na entrega', 10000, '2026-11-01', '2026-12-20');
+$ok(count($pl) === 2 && $pl[0]['amount'] === 5000.0 && $pl[0]['due_date'] === '2026-11-01' && $pl[1]['due_date'] === '2026-12-20' && $pl[0]['description'] === 'Entrada', 'parcelas: 50% + 50%, a última na entrega');
+$pl = Fin::plan('Em 3x sem juros', 1000, '2026-11-01');
+$ok(count($pl) === 3 && $pl[0]['amount'] === 333.33 && $pl[2]['amount'] === 333.34 && $pl[1]['due_date'] === '2026-12-01' && array_sum(array_column($pl, 'amount')) === 1000.0, 'parcelas: 3x iguais, centavos na última, 30 dias entre elas');
+$pl = Fin::plan('30% / 40% / 30%', 3500, '2026-11-01');
+$ok(array_column($pl, 'amount') === [1050.0, 1400.0, 1050.0], 'parcelas: 30/40/30');
+$ok(count(Fin::plan('à vista no Pix', 990, '2026-11-01')) === 1 && count(Fin::plan('50% agora e 30% depois', 990, '2026-11-01')) === 1, 'sem regra legível (ou % que não somam 100): pagamento único');
+$ok(Fin::daysLate('2026-11-20', '2026-11-23') === 3 && Fin::milestone('2026-11-26', '2026-11-23') === -3 && Fin::milestone('2026-11-22', '2026-11-23') === 1 && Fin::milestone('2026-11-21', '2026-11-23') === null, 'dias de atraso e marcos do lembrete');
+$inst = ['description' => 'Entrada', 'number' => 1, 'amount' => 5000, 'due_date' => '2026-11-20'];
+$m1 = Fin::message($inst, 'Camila Duarte', 'Interiores 90 m²', 2, '2026-11-23', 'pix@liprojetos.com.br', 'LI Projetos');
+$m2 = Fin::message($inst, 'Camila Duarte', 'Interiores 90 m²', 2, '2026-11-18');
+$ok(str_starts_with($m1, 'Olá, Camila!') && str_contains($m1, 'ainda está em aberto') && str_contains($m1, 'Pix: pix@liprojetos.com.br (LI Projetos)') && str_contains($m1, '(1 de 2)'), 'mensagem de cobrança atrasada com Pix');
+$ok(str_contains($m2, 'vence em 20/11') && !str_contains($m2, 'Pix'), 'lembrete antes do vencimento, sem Pix se não configurado');
+$sm = Fin::summary(['contract_value' => 10000], [['status' => 'paga', 'amount' => 5000, 'paid_amount' => 5000, 'due_date' => '2026-11-01'], ['status' => 'aberta', 'amount' => 5000, 'due_date' => '2026-11-10'], ['status' => 'cancelada', 'amount' => 999, 'due_date' => '2026-11-10']], 300, 600, 60, '2026-11-23');
+$ok($sm['received'] === 5000.0 && $sm['open'] === 5000.0 && $sm['overdue'] === 5000.0 && $sm['labour'] === 600.0 && $sm['margin'] === 9100.0 && $sm['planned'] === 10000.0, 'resumo: recebido ≠ contratado, cancelada fora, margem com horas e despesas');
+$ok(FCT::money('1.234,56') === 1234.56 && FCT::money('R$ 800') === 800.0 && FCT::money('99.9') === 99.9 && FCT::money('-5') === null && FCT::money('abc') === null, 'valores em reais: 1.234,56 / R$ 800');
+
 echo $fail ? "\n$fail falha(s)\n" : "\nTudo certo\n";
 exit($fail ? 1 : 0);

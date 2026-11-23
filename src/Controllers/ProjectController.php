@@ -68,7 +68,8 @@ final class ProjectController
             WHERE te.project_id = ? ORDER BY te.date DESC, te.id DESC LIMIT 15', [$p['id']])->fetchAll();
         $totalMin = (int) Db::q('SELECT COALESCE(SUM(minutes),0) FROM time_entries WHERE project_id = ?', [$p['id']])->fetchColumn();
         $users = Db::q('SELECT id, name FROM users WHERE active = 1 ORDER BY name')->fetchAll(\PDO::FETCH_KEY_PAIR);
-        view('project_show', compact('p', 'phases', 'tasks', 'deliverables', 'files', 'hours', 'totalMin', 'users'));
+        $fin = FinanceController::forProject($p, $totalMin);
+        view('project_show', compact('p', 'phases', 'tasks', 'deliverables', 'files', 'hours', 'totalMin', 'users', 'fin'));
     }
 
     public static function update(string $id): void

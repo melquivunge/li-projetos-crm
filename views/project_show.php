@@ -136,6 +136,76 @@ $openTasks = array_filter($tasks, fn($t) => !$t['done_at']);
         <button class="btn btn-sm btn-outline-dark"><?= icon('plus', 'icon icon-sm') ?>Adicionar</button>
       </form>
     </section>
+    <?php if ($fin): $sm = $fin['sum']; ?>
+    <section class="card card-body p-4" id="financeiro" aria-labelledby="h-fin">
+      <div class="d-flex justify-content-between align-items-baseline gap-2 mb-3">
+        <h2 class="h5 fw-bold mb-0" id="h-fin">Financeiro</h2>
+        <a class="small" href="/financeiro">Ver tudo</a>
+      </div>
+      <div class="fin-sum mb-3">
+        <div><span>Contrato</span><strong class="tnum"><?= e(money($sm['contract'])) ?></strong></div>
+        <div><span>Recebido</span><strong class="tnum"><?= e(money($sm['received'])) ?></strong></div>
+        <div><span>A receber</span><strong class="tnum"><?= e(money($sm['open'])) ?></strong></div>
+        <div class="<?= $sm['overdue'] > 0 ? 'is-late' : '' ?>"><span>Vencido</span><strong class="tnum"><?= e(money($sm['overdue'])) ?></strong></div>
+      </div>
+      <?php if ($sm['contract'] > 0 && abs($sm['planned'] - $sm['contract']) > 0.009): ?><p class="alert alert-warning small py-2">As parcelas somam <?= e(money($sm['planned'])) ?>, mas o contrato é <?= e(money($sm['contract'])) ?>. Ajuste os valores abaixo.</p><?php endif; ?>
+      <?php if (!$fin['installments']): ?><p class="small text-body-secondary">Nenhuma parcela. Adicione abaixo.</p><?php endif; ?>
+      <ul class="inst-list inst-list-sm">
+        <?php foreach ($fin['installments'] as $i): $late = App\Finance::daysLate($i['due_date'], $today); $back = '/projetos/' . $pid . '#financeiro'; ?>
+        <li class="inst<?= $i['status'] === 'aberta' && $late > 0 ? ' is-late' : '' ?><?= $i['status'] === 'cancelada' ? ' is-cancelled' : '' ?>">
+          <div class="min-w-0 flex-grow-1"><strong class="d-block"><?= e($i['description'] ?: 'Parcela ' . $i['number']) ?></strong>
+            <small class="text-body-secondary"><?php if ($i['status'] === 'paga'): ?>paga em <?= e(date('d/m/Y', strtotime($i['paid_at']))) ?> · <?= e(App\Finance::METHODS[$i['method']] ?? '') ?>
+              <?php elseif ($i['status'] === 'cancelada'): ?>cancelada
+              <?php else: ?>vence <?= e(date('d/m/Y', strtotime($i['due_date']))) ?><?= $late > 0 ? ' · <span class="text-danger">' . $late . ' dia' . ($late > 1 ? 's' : '') . ' de atraso</span>' : '' ?><?= $i['reminders'] ? ' · cobrado ' . (int) $i['reminders'] . '×' : '' ?><?php endif; ?></small></div>
+          <strong class="tnum"><?= e(money((float) ($i['status'] === 'paga' ? ($i['paid_amount'] ?? $i['amount']) : $i['amount']))) ?></strong>
+          <div class="inst-actions">
+          <?php if ($i['status'] === 'aberta'): ?>
+            <form method="post" action="/parcelas/<?= (int) $i['id'] ?>/cobrar" target="_blank"><?= csrf_field() ?><input type="hidden" name="canal" value="whatsapp"><input type="hidden" name="back" value="<?= e($back) ?>"><button class="btn btn-sm btn-outline-dark" aria-label="Cobrar no WhatsApp"><?= icon('whatsapp', 'icon icon-sm') ?></button></form>
+            <details class="pay"><summary class="btn btn-sm btn-dark">Recebi</summary>
+              <form method="post" action="/parcelas/<?= (int) $i['id'] ?>/pagar" class="pay-form"><?= csrf_field() ?><input type="hidden" name="back" value="<?= e($back) ?>">
+                <label class="form-label small" for="ppd-<?= (int) $i['id'] ?>">Dia</label><input class="form-control form-control-sm" type="date" id="ppd-<?= (int) $i['id'] ?>" name="paid_at" value="<?= $today ?>" max="<?= $today ?>">
+                <label class="form-label small" for="ppm-<?= (int) $i['id'] ?>">Forma</label><select class="form-select form-select-sm" id="ppm-<?= (int) $i['id'] ?>" name="method"><?php foreach (App\Finance::METHODS as $k => $l): ?><option value="<?= $k ?>"><?= $l ?></option><?php endforeach; ?></select>
+                <label class="form-label small" for="ppa-<?= (int) $i['id'] ?>">Valor recebido</label><input class="form-control form-control-sm" id="ppa-<?= (int) $i['id'] ?>" name="paid_amount" inputmode="decimal" value="<?= e(number_format((float) $i['amount'], 2, ',', '.')) ?>">
+                <button class="btn btn-sm btn-dark mt-2 w-100">Registrar pagamento</button>
+              </form></details>
+            <details class="pay"><summary class="btn btn-sm btn-link link-secondary">Editar</summary>
+              <form method="post" action="/parcelas/<?= (int) $i['id'] ?>" class="pay-form"><?= csrf_field() ?><input type="hidden" name="back" value="<?= e($back) ?>">
+                <label class="form-label small" for="pe-d-<?= (int) $i['id'] ?>">Descrição</label><input class="form-control form-control-sm" id="pe-d-<?= (int) $i['id'] ?>" name="description" maxlength="120" value="<?= e((string) $i['description']) ?>">
+                <label class="form-label small" for="pe-a-<?= (int) $i['id'] ?>">Valor</label><input class="form-control form-control-sm" id="pe-a-<?= (int) $i['id'] ?>" name="amount" inputmode="decimal" value="<?= e(number_format((float) $i['amount'], 2, ',', '.')) ?>">
+                <label class="form-label small" for="pe-v-<?= (int) $i['id'] ?>">Vencimento</label><input class="form-control form-control-sm" type="date" id="pe-v-<?= (int) $i['id'] ?>" name="due_date" value="<?= e($i['due_date']) ?>">
+                <button class="btn btn-sm btn-dark mt-2 w-100">Salvar</button>
+                <button class="btn btn-sm btn-link link-secondary w-100" formaction="/parcelas/<?= (int) $i['id'] ?>/cancelar">Cancelar parcela</button>
+              </form></details>
+          <?php else: ?>
+            <form method="post" action="/parcelas/<?= (int) $i['id'] ?>/estornar"><?= csrf_field() ?><input type="hidden" name="back" value="<?= e($back) ?>"><button class="btn btn-sm btn-link link-secondary"><?= $i['status'] === 'paga' ? 'Estornar' : 'Reativar' ?></button></form>
+          <?php endif; ?>
+          </div>
+        </li>
+        <?php endforeach; ?>
+      </ul>
+      <form method="post" action="/projetos/<?= $pid ?>/parcelas" class="d-flex flex-wrap gap-2 align-items-end mt-3 pt-3 border-top"><?= csrf_field() ?>
+        <div class="flex-grow-1"><label class="form-label small" for="ni-d">Nova parcela</label><input class="form-control form-control-sm" id="ni-d" name="description" maxlength="120" placeholder="Ex.: Aditivo de escopo"></div>
+        <div><label class="form-label small" for="ni-a">Valor</label><input class="form-control form-control-sm" id="ni-a" name="amount" inputmode="decimal" required placeholder="0,00"></div>
+        <div><label class="form-label small" for="ni-v">Vencimento</label><input class="form-control form-control-sm" type="date" id="ni-v" name="due_date" required></div>
+        <button class="btn btn-sm btn-outline-dark"><?= icon('plus', 'icon icon-sm') ?>Adicionar</button>
+      </form>
+      <h3 class="h6 mt-4">Margem estimada</h3>
+      <dl class="facts mb-2">
+        <dt>Contrato</dt><dd class="tnum"><?= e(money($sm['contract'])) ?></dd>
+        <dt>Despesas</dt><dd class="tnum">− <?= e(money($sm['expenses'])) ?></dd>
+        <dt>Horas (<?= e($hm($totalMin)) ?>)</dt><dd class="tnum">− <?= e(money($sm['labour'])) ?></dd>
+        <dt>Margem</dt><dd class="tnum <?= $sm['margin'] < 0 ? 'text-danger' : '' ?>"><?= e(money($sm['margin'])) ?><?= $sm['contract'] > 0 ? ' · ' . round(100 * $sm['margin'] / $sm['contract']) . '%' : '' ?></dd>
+      </dl>
+      <?php if ((float) App\Finance::setting('hourly_cost') <= 0): ?><p class="small text-body-secondary">Defina o custo da hora em <a href="/financeiro">Financeiro</a> para as horas entrarem na margem.</p><?php endif; ?>
+      <?php if ($fin['expenses']): ?><ul class="hours-list mb-2"><?php foreach ($fin['expenses'] as $x): ?><li><span class="min-w-0"><span class="d-block text-truncate"><?= e($x['description'] ?: App\Finance::CATEGORIES[$x['category']]) ?></span><small class="text-body-secondary"><?= e(App\Finance::CATEGORIES[$x['category']] . ' · ' . date('d/m', strtotime($x['date']))) ?></small></span><strong class="tnum"><?= e(money((float) $x['amount'])) ?></strong></li><?php endforeach; ?></ul><?php endif; ?>
+      <form method="post" action="/projetos/<?= $pid ?>/despesas" class="d-flex flex-wrap gap-2 align-items-end"><?= csrf_field() ?>
+        <div class="flex-grow-1"><label class="form-label small" for="ne-d">Nova despesa</label><input class="form-control form-control-sm" id="ne-d" name="description" maxlength="160" placeholder="Ex.: Plotagem das pranchas"></div>
+        <div><label class="form-label small" for="ne-c">Tipo</label><select class="form-select form-select-sm" id="ne-c" name="category"><?php foreach (App\Finance::CATEGORIES as $k => $l): ?><option value="<?= $k ?>"><?= $l ?></option><?php endforeach; ?></select></div>
+        <div><label class="form-label small" for="ne-a">Valor</label><input class="form-control form-control-sm" id="ne-a" name="amount" inputmode="decimal" required placeholder="0,00"></div>
+        <button class="btn btn-sm btn-outline-dark"><?= icon('plus', 'icon icon-sm') ?>Lançar</button>
+      </form>
+    </section>
+    <?php endif; ?>
   </div>
 
   <div class="col-xl-4 d-grid gap-4 align-content-start">
