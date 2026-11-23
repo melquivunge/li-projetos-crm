@@ -216,6 +216,11 @@ O schema (`database/schema.sql`) roda sozinho no primeiro `up` (volume `dbdata`)
   - Tipos novos no modelo: `titulo` (seção) e `roteiro` (fala ou dica, sem resposta). O modelo é editável em Preços → Briefing.
   - **Verificado:** `tests/run.php` (1 teste novo), `e2e-briefing.sh` (37 campos, 6 blocos, 4 falas, sem envio, 404 público), captura da tela.
   - **Ainda não aplicado do documento** (decisão das sócias): mensagem de envio da proposta (seção 16), registro de objeção/desconto/motivo nas propostas e o painel de rentabilidade (seção 11, entra na fase H).
+- **Publicado no staging e na produção (23/11/2026):** portal, anti-calote, perfil, contrato, textos e roteiro da reunião (migrações 011–015).
+  - **`bin/backup.php`:** `mysqldump | gzip` em `STORAGE_DIR/backups` (fora do site), guarda os 10 mais recentes; senha por `MYSQL_PWD`, nunca no cron. Testado no staging.
+  - **Como migrar em produção:** publicar o pacote e criar um cron temporário `php bin/backup.php && php bin/migrate.php` (a migração só roda se o backup der certo); ler a saída e apagar o cron. Assim foi feito em 23/11 (011–015 aplicadas).
+  - Permissão das ferramentas da Hostinger liberada em `~/Desktop/Website/.claude/settings.local.json` (pedido do Melqui).
+  - **Staging não tem o cron de hora em hora** (só a produção): lá os projetos não pausam sozinhos por atraso.
 - **Fase G (financeiro e cobrança): feita (23/11/2026), adiantada a pedido.** Migração `009_finance.sql`.
   - **Sem API de pagamento** (decisão do Melqui): a chave Pix vai na mensagem de cobrança e o pagamento é registrado à mão, com a forma (Pix, cartão, transferência, boleto, dinheiro).
   - **Parcelas nascem do aceite**, a partir do texto "Forma de pagamento" da proposta: "50% + 50%" (a última vence na entrega do projeto), "3x" (a cada 30 dias), "30% / 40% / 30%". Sem regra legível: pagamento único. Editáveis; aviso quando a soma difere do contrato.
