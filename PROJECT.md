@@ -165,6 +165,15 @@ O schema (`database/schema.sql`) roda sozinho no primeiro `up` (volume `dbdata`)
     - **Para ligar na Hostinger:** hPanel → Avançado → Cron Jobs → comando `php /home/<usuário>/domains/crm.liprojetos.com.br/bin/cron.php` (ajustar ao caminho real), a cada hora.
   - **Ao vivo na tela:** `GET /api/pulse` devolve não lidas e tarefas atrasadas/hoje; o `app.js` consulta a cada minuto (só com a aba visível) e atualiza o sino, os contadores do menu e o título da aba.
   - **Atenção:** projetos de clientes sem responsável ficam sem responsável. Defina um em "Editar projeto".
+- **Fase G (financeiro e cobrança): feita (23/11/2026), adiantada a pedido.** Migração `009_finance.sql`.
+  - **Sem API de pagamento** (decisão do Melqui): a chave Pix vai na mensagem de cobrança e o pagamento é registrado à mão, com a forma (Pix, cartão, transferência, boleto, dinheiro).
+  - **Parcelas nascem do aceite**, a partir do texto "Forma de pagamento" da proposta: "50% + 50%" (a última vence na entrega do projeto), "3x" (a cada 30 dias), "30% / 40% / 30%". Sem regra legível: pagamento único. Editáveis; aviso quando a soma difere do contrato.
+  - **/financeiro** (admin e financeiro): Vencidas, A receber, Recebidas; totais de vencido, a vencer em 7 dias, a receber e recebido no mês. Botões Cobrar (WhatsApp com a mensagem pronta), E-mail e Recebi. Contador vermelho no menu.
+  - **Nada é apagado:** pagamento errado → Estornar; parcela errada → Cancelar. Tudo no `audit_log` e no histórico do cliente (tipo "cobrança").
+  - **Cron:** avisa o financeiro e as sócias 3 dias antes, no dia e com 1, 7, 15 e 30 dias de atraso. A cobrança ao cliente continua sendo um clique (não sai sozinha).
+  - **Margem por projeto:** contrato − despesas − horas × custo da hora (configurável em /financeiro).
+  - **`bin/migrate.php`** aplica migrações pendentes (tabela `schema_migrations`). Em produção, a primeira vez é com `--baseline=008`.
+  - **Verificado:** `tests/run.php` (10 testes novos), `tests/e2e-finance.sh` e os e2e das fases anteriores; capturas de /financeiro e do cartão no projeto.
 - **Produção na Hostinger (22/11/2026):** https://crm.liprojetos.com.br (conta `u886922570`, raiz `public_html/crm`).
   - Publicação por pacote `.zip` (API da Hostinger): arquivos do git + `vendor/` + `.env.production` renomeado para `.env`. **Cada publicação apaga a pasta do site**; por isso os arquivos enviados ficam em `STORAGE_DIR=/home/u886922570/domains/liprojetos.com.br/crm-storage`, fora dela.
   - `.htaccess` na raiz manda tudo para `public/` e bloqueia `.env`, `.sql`, `.md` etc.
