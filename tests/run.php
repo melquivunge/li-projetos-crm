@@ -117,6 +117,9 @@ $ok(isset($pe['document'], $pe['address_zip'], $pe['address_state'], $pe['birth_
 $ps = Fin::payerSummary([$paid('paga', 100, 100, '2026-11-01') + ['paid_at' => '2026-11-01'], $paid('paga', 100, 100, '2026-11-01') + ['paid_at' => '2026-11-05'], $paid('aberta', 50, null, '2026-11-10') + ['paid_at' => null], $paid('cancelada', 999) + ['paid_at' => null]], '2026-11-23');
 $ok($ps['paid'] === 200.0 && $ps['overdue'] === 50.0 && $ps['late_paid'] === 1 && $ps['max_late'] === 13 && $ps['badge'][0] === 'Inadimplente' && $ps['count'] === 3, 'perfil: resumo do pagador (cancelada fora, atraso conta)');
 $ok(Fin::payerSummary([$paid('paga', 100, 100) + ['paid_at' => '2026-10-30']], '2026-11-23')['badge'][0] === 'Bom pagador' && Fin::payerSummary([], '2026-11-23')['badge'][0] === 'Sem histórico', 'perfil: bom pagador / sem histórico');
+use App\Briefings as Brf;
+$mq = Brf::parse("Abertura | titulo\n“Quero entender…” | roteiro\nB01 — Tipo | select | Apartamento;Casa\nB02 — Área | number");
+$ok(count($mq) === 4 && $mq[0]['type'] === 'titulo' && $mq[1]['type'] === 'roteiro' && count(Brf::inputs($mq)) === 2 && Brf::answered($mq, [$mq[0]['key'] => 'x', $mq[2]['key'] => 'Casa']) === 1 && !isset(Brf::cleanAnswers($mq, [$mq[1]['key'] => 'x'])[$mq[1]['key']]), 'reunião: título e roteiro aparecem mas não contam como resposta');
 use App\Revisions as Rev;
 $ok(Rev::included('Inclui 2 rodadas de revisão em cada etapa.') === 2 && Rev::included('Inclui 3 rodadas') === 3 && Rev::included('Inclui duas rodadas de ajuste') === 2 && Rev::included('Cada sessão tem 1 hora.') === 2 && Rev::included(null) === 2, 'rodadas incluídas lidas da política da proposta (padrão 2)');
 $reqs = [['type' => 'revisao', 'status' => 'concluida', 'phase_id' => 5], ['type' => 'revisao', 'status' => 'recusada', 'phase_id' => 5], ['type' => 'correcao', 'status' => 'aberta', 'phase_id' => 5], ['type' => 'revisao', 'status' => 'aberta', 'phase_id' => 6]];

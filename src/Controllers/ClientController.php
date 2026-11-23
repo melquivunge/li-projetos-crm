@@ -120,7 +120,7 @@ final class ClientController
         $tasks = Db::q('SELECT t.*, u.name AS owner_name FROM tasks t LEFT JOIN users u ON u.id = t.owner_id WHERE t.client_id = ? ORDER BY t.done_at IS NOT NULL, t.due_at, t.id DESC LIMIT 30', [$c['id']])->fetchAll();
         $owners = self::owners();
         $briefings = [];
-        foreach (Db::q('SELECT id, opportunity_id, status FROM briefings WHERE client_id = ? ORDER BY id', [$c['id']]) as $bf) $briefings[$bf['opportunity_id']] = $bf;
+        foreach (Db::q('SELECT id, opportunity_id, kind, status FROM briefings WHERE client_id = ? ORDER BY id', [$c['id']]) as $bf) $briefings[$bf['opportunity_id']][$bf['kind']] = $bf;
         $installments = Db::q("SELECT i.status, i.amount, i.paid_amount, i.due_date, i.paid_at FROM installments i JOIN projects p ON p.id = i.project_id WHERE i.client_id = ? AND p.status <> 'cancelado'", [$c['id']])->fetchAll();
         $contracted = (float) Db::q("SELECT COALESCE(SUM(contract_value),0) FROM projects WHERE client_id = ? AND status <> 'cancelado'", [$c['id']])->fetchColumn();
         $payer = \App\Finance::payerSummary($installments, date('Y-m-d')) + ['contracted' => $contracted];

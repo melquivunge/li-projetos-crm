@@ -145,9 +145,12 @@ $missing = array_keys(array_filter(['CPF/CNPJ' => !$c['document'], 'endereço' =
             <span class="badge stage-<?= e($o['stage']) ?>"><?= e(Opportunities::STAGES[$o['stage']]) ?></span>
           </div>
           <?php if ($o['stage'] === 'perdido' && $o['lost_reason']): ?><p class="small text-body-secondary mb-0 mt-1">Motivo: <?= e($o['lost_reason']) ?></p><?php endif; ?>
-          <?php $bf = $briefings[$o['id']] ?? null; ?>
-          <div class="d-flex align-items-center gap-2 mt-2 small">
-            <?= icon('file', 'icon icon-sm') ?>
+          <?php $bm = $briefings[$o['id']]['reuniao'] ?? null; $bf = $briefings[$o['id']]['servico'] ?? null; ?>
+          <div class="d-flex flex-wrap align-items-center gap-2 mt-2 small">
+            <?= icon('calendar', 'icon icon-sm') ?>
+            <?php if ($bm): ?><a href="/briefings/<?= (int) $bm['id'] ?>">Reunião inicial</a>
+            <?php else: ?><form method="post" action="/oportunidades/<?= (int) $o['id'] ?>/briefing"><?= csrf_field() ?><input type="hidden" name="kind" value="reuniao"><button class="btn btn-link btn-sm p-0">Roteiro da reunião</button></form><?php endif; ?>
+            <span aria-hidden="true">·</span> <?= icon('file', 'icon icon-sm') ?>
             <?php if ($bf): ?><a href="/briefings/<?= (int) $bf['id'] ?>">Briefing</a> <span class="badge bstatus-<?= e($bf['status']) ?>"><?= e(App\Briefings::STATUS[$bf['status']]) ?></span>
             <?php else: ?><form method="post" action="/oportunidades/<?= (int) $o['id'] ?>/briefing"><?= csrf_field() ?><button class="btn btn-link btn-sm p-0">Criar briefing</button></form><?php endif; ?>
             <?php foreach (App\Db::q('SELECT id, status FROM projects WHERE opportunity_id = ?', [$o['id']]) as $pj): ?><span aria-hidden="true">·</span> <?= icon('folder', 'icon icon-sm') ?><a href="/projetos/<?= (int) $pj['id'] ?>">Projeto #<?= (int) $pj['id'] ?></a> <span class="badge pstatus-<?= e($pj['status']) ?>"><?= e(App\Projects::STATUS[$pj['status']]) ?></span><?php endforeach; ?>

@@ -1,4 +1,4 @@
-<div class="page-head"><div><h1 class="h3">Perguntas do briefing</h1><p>Uma pergunta por linha: <code>Pergunta | tipo | opções</code>. Tipos: text, textarea, number, select (opções separadas por ;). Valem para os próximos briefings.</p></div>
+<div class="page-head"><div><h1 class="h3">Perguntas do briefing</h1><p>Uma pergunta por linha: <code>Pergunta | tipo | opções</code>. Tipos: text, textarea, number, select (opções separadas por ;), titulo (título de seção) e roteiro (fala ou dica, sem resposta). "Reunião inicial" é o roteiro da conversa de 30 min, só da equipe. Valem para os próximos briefings.</p></div>
   <div class="seg" role="group" aria-label="Seção"><a class="seg-btn" href="/precos">Preços</a><a class="seg-btn" href="/precos/modelos">Propostas</a><a class="seg-btn" aria-current="page" href="/briefings/modelos">Briefing</a></div></div>
 <form method="post" action="/briefings/modelos" class="d-grid gap-4">
   <?= csrf_field() ?>

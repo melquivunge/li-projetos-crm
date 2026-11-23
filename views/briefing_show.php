@@ -1,9 +1,9 @@
-<?php use App\Briefings; $done = Briefings::answered($questions, $answers); $total = count($questions); $readonly = false; ?>
+<?php use App\Briefings; $done = Briefings::answered($questions, $answers); $total = count(Briefings::inputs($questions)); $readonly = false; $meeting = $b['kind'] === 'reuniao'; ?>
 <a class="small link-secondary" href="/clientes/<?= (int) $c['id'] ?>">← <?= e($c['name']) ?></a>
 <div class="page-head mt-1">
-  <div><h1 class="h3">Briefing<?= (int) $b['version'] > 1 ? ' <small class="text-body-secondary fs-6">versão ' . (int) $b['version'] . '</small>' : '' ?></h1>
-    <p><span class="badge bstatus-<?= e($b['status']) ?>"><?= e(Briefings::STATUS[$b['status']]) ?></span> · <?= e($b['service'] ?? '') ?> · <?= $done ?>/<?= $total ?> respostas</p></div>
-  <form method="post" action="/briefings/<?= (int) $b['id'] ?>/enviar" target="_blank"><?= csrf_field() ?><button class="btn btn-success"><?= icon('whatsapp', 'icon icon-sm') ?><?= $b['sent_at'] ? 'Reenviar ao cliente' : 'Enviar ao cliente' ?></button></form>
+  <div><h1 class="h3"><?= $meeting ? 'Reunião inicial <small class="text-body-secondary fs-6">roteiro de 30 min</small>' : 'Briefing' ?><?= (int) $b['version'] > 1 ? ' <small class="text-body-secondary fs-6">versão ' . (int) $b['version'] . '</small>' : '' ?></h1>
+    <p><?php if (!$meeting): ?><span class="badge bstatus-<?= e($b['status']) ?>"><?= e(Briefings::STATUS[$b['status']]) ?></span> · <?php endif; ?><?= e($b['service'] ?? '') ?> · <?= $done ?>/<?= $total ?> respostas</p></div>
+  <?php if (!$meeting): ?><form method="post" action="/briefings/<?= (int) $b['id'] ?>/enviar" target="_blank"><?= csrf_field() ?><button class="btn btn-success"><?= icon('whatsapp', 'icon icon-sm') ?><?= $b['sent_at'] ? 'Reenviar ao cliente' : 'Enviar ao cliente' ?></button></form><?php endif; ?>
 </div>
 <div class="row g-4">
   <div class="col-xl-8">
@@ -16,11 +16,18 @@
     </form>
   </div>
   <div class="col-xl-4 d-grid gap-3 align-content-start">
+    <?php if ($meeting): ?>
+    <div class="card card-body">
+      <h2 class="h6">Como usar</h2>
+      <p class="small text-body-secondary mb-0">Preencha durante a reunião gratuita de 30 minutos. Não precisa fazer todas as perguntas. Este roteiro é só da equipe: o cliente não vê. Depois, o briefing do serviço segue para o cliente responder com os detalhes técnicos.</p>
+    </div>
+    <?php else: ?>
     <div class="card card-body">
       <h2 class="h6">Link do cliente</h2>
       <input class="form-control form-control-sm mb-2" value="<?= e($url) ?>" readonly aria-label="Link do briefing">
       <p class="small text-body-secondary mb-0"><?= $b['sent_at'] ? 'O cliente responde, anexa arquivos e confirma pelo link.' : 'O link abre depois do primeiro envio.' ?></p>
     </div>
+    <?php endif; ?>
     <div class="card card-body">
       <h2 class="h6">Arquivos (<?= count($files) ?>)</h2>
       <?php if (!$files): ?><p class="small text-body-secondary mb-0">Nenhum arquivo ainda.</p><?php endif; ?>
@@ -32,6 +39,7 @@
         <?php endforeach; ?>
       </ul>
     </div>
+    <?php if (!$meeting): ?>
     <div class="card card-body small">
       <h2 class="h6">Andamento</h2>
       <div>Enviado: <?= $b['sent_at'] ? e(date('d/m H:i', strtotime($b['sent_at']))) : '—' ?></div>
@@ -39,5 +47,6 @@
       <div>Validado: <?= $b['validated_at'] ? e(date('d/m H:i', strtotime($b['validated_at']))) : '—' ?></div>
       <?php foreach ($history as $a): ?><p class="mb-0 mt-2"><b>Validado</b> por <?= e($a['name']) ?> em <?= e(date('d/m/Y H:i', strtotime($a['created_at']))) ?> (v<?= (int) $a['version'] ?>)</p><?php endforeach; ?>
     </div>
+    <?php endif; ?>
   </div>
 </div>

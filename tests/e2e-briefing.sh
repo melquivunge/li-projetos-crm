@@ -32,6 +32,12 @@ echo "pelo link: arquivo do cliente $(curl -s -o /dev/null -w %{http_code} $B/b/
 echo "cabeçalho: $(curl -s -D - -o /dev/null -b $S/adm.jar $B/arquivos/$FID | grep -i 'content-security-policy' | tr -d '\r' | cut -c1-60)"
 curl -s -o /dev/null -b $S/adm.jar --form-string _csrf=$T --form-string "a[$K1]=Casa" $B/briefings/$BID
 echo "equipe altera após validação: $(docker compose exec -T app php -r 'require "src/bootstrap.php"; echo App\Db::q("SELECT CONCAT(status, \" v\", version) FROM briefings WHERE id=?",[$argv[1]])->fetchColumn();' $BID)"
+L=$(curl -s -o /dev/null -w "%{redirect_url}" -b $S/adm.jar --data-urlencode "_csrf=$T" -d kind=reuniao $B/oportunidades/$OID/briefing); MID=${L##*/}
+MP=$(curl -s -b $S/adm.jar $B/briefings/$MID)
+echo "reunião inicial #$MID: perguntas $(echo "$MP" | grep -c 'name="a\[') | blocos $(echo "$MP" | grep -o 'class="brief-title"' | wc -l | tr -d ' ') | falas $(echo "$MP" | grep -o 'class="brief-script"' | wc -l | tr -d ' ') | B24 $(echo "$MP" | grep -c 'B24 —') | botão de envio $(echo "$MP" | grep -c 'Enviar ao cliente')"
+L2=$(curl -s -o /dev/null -w "%{redirect_url}" -b $S/adm.jar --data-urlencode "_csrf=$T" -d kind=reuniao $B/oportunidades/$OID/briefing)
+MT=$(docker compose exec -T app php -r 'require "src/bootstrap.php"; echo App\Db::q("SELECT public_token FROM briefings WHERE id=?",[$argv[1]])->fetchColumn();' $MID)
+echo "criar de novo abre o mesmo: $([ "${L2##*/}" = "$MID" ] && echo sim || echo NÃO) | enviar ao cliente: $(curl -s -o /dev/null -w %{http_code} -b $S/adm.jar --form-string _csrf=$T $B/briefings/$MID/enviar) | link público: $(curl -s -o /dev/null -w %{http_code} $B/b/$MT) | ficha mostra: $(curl -s -b $S/adm.jar $B/clientes/$CID | grep -c '>Reunião inicial</a>')"
 echo "comercial abre briefing alheio: $(curl -s -o /dev/null -w %{http_code} -b $S/com.jar $B/briefings/$BID)"
 docker compose exec -T app php -r 'require "src/bootstrap.php"; use App\Db; foreach (Db::q("SELECT * FROM files WHERE client_id IN (SELECT id FROM clients WHERE email=\"briefing@example.com\")")->fetchAll() as $f) App\Files::remove($f);
 Db::q("DELETE FROM approvals WHERE entity=\"briefing\" AND name=\"Ana Cliente Teste\""); Db::q("DELETE FROM clients WHERE email=\"briefing@example.com\""); Db::q("DELETE FROM users WHERE email LIKE \"c-%@example.com\""); Db::q("DELETE FROM login_attempts");'

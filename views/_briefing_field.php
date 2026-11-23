@@ -2,6 +2,8 @@
 // One briefing question. Expects $q, $answers, $readonly.
 $v = (string) ($answers[$q['key']] ?? ''); $fid = 'q-' . $q['key']; $fname = 'a[' . $q['key'] . ']';
 ?>
+<?php if ($q['type'] === 'titulo'): ?><h3 class="brief-title"><?= e($q['label']) ?></h3><?php return; endif; ?>
+<?php if ($q['type'] === 'roteiro'): ?><p class="brief-script"><?= e($q['label']) ?></p><?php return; endif; ?>
 <div class="mb-3">
   <label class="form-label" for="<?= e($fid) ?>"><?= e($q['label']) ?></label>
   <?php if ($q['type'] === 'textarea'): ?><textarea class="form-control" id="<?= e($fid) ?>" name="<?= e($fname) ?>" rows="3" maxlength="4000" <?= $readonly ? 'disabled' : '' ?>><?= e($v) ?></textarea>

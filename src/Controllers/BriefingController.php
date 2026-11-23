@@ -18,12 +18,18 @@ final class BriefingController
         $o = Opportunities::findOrFail((int) $id);
         $c = Clients::findOrFail((int) $o['client_id']);
         $service = $o['service'] ?: $c['service'];
-        $t = Db::q('SELECT questions FROM briefing_templates WHERE service = ?', [$service])->fetchColumn()
-            ?: Db::q("SELECT questions FROM briefing_templates WHERE service = 'Design de Interiores'")->fetchColumn();
-        Db::q('INSERT INTO briefings (client_id, opportunity_id, service, questions, answers, public_token, created_by) VALUES (?,?,?,?,?,?,?)',
-            [$c['id'], $o['id'], $service, $t, '{}', bin2hex(random_bytes(32)), $u['id']]);
+        $kind = ($_POST['kind'] ?? '') === 'reuniao' ? 'reuniao' : 'servico';
+        $existing = Db::q('SELECT id FROM briefings WHERE opportunity_id = ? AND kind = ? ORDER BY id DESC LIMIT 1', [$o['id'], $kind])->fetchColumn();
+        if ($existing) redirect('/briefings/' . $existing);
+        $t = $kind === 'reuniao'
+            ? Db::q('SELECT questions FROM briefing_templates WHERE service = ?', [Briefings::MEETING_TEMPLATE])->fetchColumn()
+            : (Db::q('SELECT questions FROM briefing_templates WHERE service = ?', [$service])->fetchColumn()
+                ?: Db::q("SELECT questions FROM briefing_templates WHERE service = 'Design de Interiores'")->fetchColumn());
+        if (!$t) abort(404);
+        Db::q('INSERT INTO briefings (client_id, opportunity_id, service, kind, questions, answers, public_token, created_by) VALUES (?,?,?,?,?,?,?,?)',
+            [$c['id'], $o['id'], $service, $kind, $t, '{}', bin2hex(random_bytes(32)), $u['id']]);
         $bid = (int) Db::pdo()->lastInsertId();
-        Clients::event((int) $c['id'], 'sistema', 'Briefing criado para "' . $o['title'] . '".');
+        Clients::event((int) $c['id'], 'sistema', Briefings::KINDS[$kind] . ' criado para "' . $o['title'] . '".');
         Audit::log('briefing.create', 'briefing', $bid);
         redirect("/briefings/$bid");
     }
@@ -62,6 +68,7 @@ final class BriefingController
     {
         Auth::requirePerm('crm');
         [$b, $c] = Briefings::load((int) $id);
+        if ($b['kind'] === 'reuniao') abort(400, 'O roteiro da reunião é da equipe e não é enviado ao cliente.');
         if (in_array($b['status'], ['rascunho', 'enviado'], true)) Db::q("UPDATE briefings SET status = 'enviado', sent_at = COALESCE(sent_at, NOW()) WHERE id = ?", [$b['id']]);
         if ($b['opportunity_id']) {
             $o = Db::q('SELECT * FROM opportunities WHERE id = ?', [$b['opportunity_id']])->fetch();
@@ -96,7 +103,7 @@ final class BriefingController
 
     private static function byToken(string $token): array
     {
-        $b = Db::q('SELECT * FROM briefings WHERE public_token = ?', [$token])->fetch() ?: abort(404);
+        $b = Db::q("SELECT * FROM briefings WHERE public_token = ? AND kind = 'servico'", [$token])->fetch() ?: abort(404);
         if (!$b['sent_at']) abort(404);
         $c = Db::q('SELECT id, name, owner_id FROM clients WHERE id = ?', [$b['client_id']])->fetch() ?: abort(404);
         return [$b, $c];
