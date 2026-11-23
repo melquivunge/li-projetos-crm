@@ -60,16 +60,19 @@ final class ProjectController
             LEFT JOIN users u ON u.id = t.owner_id LEFT JOIN tasks b ON b.id = t.blocked_by WHERE t.project_id = ? ORDER BY t.done_at IS NOT NULL, t.due_at, t.id', [$p['id']])->fetchAll();
         $deliverables = Db::q('SELECT * FROM deliverables WHERE project_id = ? ORDER BY id', [$p['id']])->fetchAll();
         $files = [];
+        $ids = implode(',', array_map('intval', array_column($deliverables, 'id'))) ?: '0';
         if ($deliverables) {
-            $ids = implode(',', array_map('intval', array_column($deliverables, 'id')));
             foreach (Db::q("SELECT * FROM files WHERE owner_type = 'deliverable' AND owner_id IN ($ids) ORDER BY id DESC") as $f) $files[$f['owner_id']][] = $f;
         }
         $hours = Db::q('SELECT te.*, u.name AS user_name, t.title AS task_title FROM time_entries te LEFT JOIN users u ON u.id = te.user_id LEFT JOIN tasks t ON t.id = te.task_id
             WHERE te.project_id = ? ORDER BY te.date DESC, te.id DESC LIMIT 15', [$p['id']])->fetchAll();
         $totalMin = (int) Db::q('SELECT COALESCE(SUM(minutes),0) FROM time_entries WHERE project_id = ?', [$p['id']])->fetchColumn();
         $users = Db::q('SELECT id, name FROM users WHERE active = 1 ORDER BY name')->fetchAll(\PDO::FETCH_KEY_PAIR);
+        $revisions = Db::q('SELECT r.*, d.title AS deliverable_title FROM revision_requests r LEFT JOIN deliverables d ON d.id = r.deliverable_id WHERE r.project_id = ? ORDER BY FIELD(r.status, "aguardando_aprovacao", "andamento", "aberta", "concluida", "recusada"), r.id DESC', [$p['id']])->fetchAll();
+        $approvals = [];
+        if ($deliverables) foreach (Db::q("SELECT * FROM approvals WHERE entity = 'deliverable' AND entity_id IN ($ids) ORDER BY id") as $a) $approvals[$a['entity_id']] = $a;
         $fin = FinanceController::forProject($p, $totalMin);
-        view('project_show', compact('p', 'phases', 'tasks', 'deliverables', 'files', 'hours', 'totalMin', 'users', 'fin'));
+        view('project_show', compact('p', 'phases', 'tasks', 'deliverables', 'files', 'hours', 'totalMin', 'users', 'fin', 'revisions', 'approvals'));
     }
 
     public static function update(string $id): void

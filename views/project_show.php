@@ -122,6 +122,22 @@ $openTasks = array_filter($tasks, fn($t) => !$t['done_at']);
             <?php endforeach; ?>
           </ul>
           <?php endif; ?>
+          <?php $ap = $approvals[$d['id']] ?? null; ?>
+          <?php if ($ap && $d['status'] === 'aprovado'): ?><p class="small mt-2 mb-0 text-success-emphasis"><?= icon('check', 'icon icon-sm') ?> Aprovado por <?= e($ap['name']) ?> em <?= e(date('d/m/Y H:i', strtotime($ap['created_at']))) ?> · versão <?= (int) $ap['version'] ?><?= $ap['user_id'] ? ' (registrado pela equipe)' : ' (pelo link)' ?></p><?php endif; ?>
+          <div class="deliv-actions mt-2">
+            <?php if ($fl && $d['status'] !== 'aprovado'): ?>
+            <form method="post" action="/entregas/<?= (int) $d['id'] ?>/enviar" target="_blank"><?= csrf_field() ?><button class="btn btn-sm btn-outline-dark"><?= icon('whatsapp', 'icon icon-sm') ?><?= $d['sent_at'] ? 'Reenviar ao cliente' : 'Enviar para aprovação' ?></button></form>
+            <?php endif; ?>
+            <?php if ($d['public_token'] && $d['sent_at']): ?><input class="form-control form-control-sm deliv-link" readonly value="<?= e(App\Controllers\RevisionController::publicUrl($d)) ?>" aria-label="Link de aprovação para o cliente"><?php endif; ?>
+            <?php if ($d['status'] !== 'aprovado'): ?>
+            <details class="pay"><summary class="btn btn-sm btn-link link-secondary">Registrar aprovação</summary>
+              <form method="post" action="/entregas/<?= (int) $d['id'] ?>/aprovar" class="pay-form"><?= csrf_field() ?>
+                <label class="form-label small" for="ap-<?= (int) $d['id'] ?>">Quem aprovou</label><input class="form-control form-control-sm" id="ap-<?= (int) $d['id'] ?>" name="name" maxlength="160" required placeholder="Nome do cliente">
+                <p class="small text-body-secondary mb-1 mt-1">Use quando o cliente aprovou pelo WhatsApp ou em reunião.</p>
+                <button class="btn btn-sm btn-dark w-100">Registrar</button>
+              </form></details>
+            <?php endif; ?>
+          </div>
           <form method="post" action="/entregas/<?= (int) $d['id'] ?>" enctype="multipart/form-data" class="d-flex flex-wrap gap-2 align-items-end mt-3"><?= csrf_field() ?>
             <div><label class="form-label small" for="ds-<?= (int) $d['id'] ?>">Situação</label><select class="form-select form-select-sm" id="ds-<?= (int) $d['id'] ?>" name="status"><?php foreach (PJ::DELIVERABLE_STATUS as $k => $l): ?><option value="<?= $k ?>" <?= $d['status'] === $k ? 'selected' : '' ?>><?= e($l) ?></option><?php endforeach; ?></select></div>
             <div class="flex-grow-1"><label class="form-label small" for="df-<?= (int) $d['id'] ?>">Enviar arquivos</label><input class="form-control form-control-sm" type="file" id="df-<?= (int) $d['id'] ?>" name="files[]" multiple accept="image/jpeg,image/png,image/webp,image/heic,application/pdf,.dwg"></div>
@@ -136,6 +152,70 @@ $openTasks = array_filter($tasks, fn($t) => !$t['done_at']);
         <button class="btn btn-sm btn-outline-dark"><?= icon('plus', 'icon icon-sm') ?>Adicionar</button>
       </form>
     </section>
+    <?php $rv = App\Revisions::class; $inc = (int) $p['revisions_included']; ?>
+    <section class="card" id="revisoes" aria-labelledby="h-rev">
+      <div class="p-4 pb-2">
+        <div class="d-flex justify-content-between align-items-baseline gap-2">
+          <h2 class="h5 fw-bold mb-0" id="h-rev">Revisões</h2>
+          <small class="text-body-secondary"><?= $inc ?> rodada<?= $inc === 1 ? '' : 's' ?> incluída<?= $inc === 1 ? '' : 's' ?> por fase</small>
+        </div>
+        <div class="rounds mt-3">
+          <?php foreach ($phases as $ph): $u2 = $rv::used($revisions, (int) $ph['id']); ?>
+          <span class="round<?= $u2 > $inc ? ' is-over' : ($u2 === $inc && $inc > 0 ? ' is-full' : '') ?>" title="Rodadas usadas em <?= e($ph['name']) ?>"><?= e($ph['name']) ?> <b class="tnum"><?= $u2 ?>/<?= $inc ?></b></span>
+          <?php endforeach; ?>
+        </div>
+      </div>
+      <?php if (!$revisions): ?><p class="small text-body-secondary px-4">Nenhum pedido de revisão. Os pedidos do cliente pelo link de aprovação também aparecem aqui.</p><?php else: ?>
+      <ul class="inst-list">
+        <?php foreach ($revisions as $r): ?>
+        <li class="inst rev<?= $r['status'] === 'aguardando_aprovacao' ? ' is-waiting' : '' ?><?= in_array($r['status'], ['concluida', 'recusada'], true) ? ' is-closed' : '' ?>">
+          <div class="min-w-0 flex-grow-1">
+            <div class="d-flex flex-wrap gap-1 align-items-center mb-1">
+              <span class="badge rtype-<?= e($r['type']) ?>"><?= e($rv::TYPES[$r['type']]) ?><?= $r['round'] ? ' · ' . (int) $r['round'] . 'ª rodada' : '' ?></span>
+              <?php if ($r['is_extra']): ?><span class="badge rtype-extra">Extra</span><?php endif; ?>
+              <span class="badge rstatus-<?= e($r['status']) ?>"><?= e($rv::STATUS[$r['status']]) ?></span>
+            </div>
+            <span class="d-block rev-desc"><?= nl2br(e($r['description'])) ?></span>
+            <small class="text-body-secondary"><?= e(implode(' · ', array_filter([$r['phase_id'] ? ($phaseName[$r['phase_id']] ?? null) : null, $r['deliverable_title'], ($r['from_client'] ? 'pedido pelo cliente' : 'registrado') . ($r['author_name'] ? ' (' . $r['author_name'] . ')' : '') . ' em ' . date('d/m', strtotime($r['created_at'])), $r['due_date'] ? 'prazo ' . date('d/m', strtotime($r['due_date'])) : null, $r['extra_cost'] ? 'custo extra ' . money((float) $r['extra_cost']) : null, $r['cost_approved_at'] ? 'custo aprovado em ' . date('d/m', strtotime($r['cost_approved_at'])) : null]))) ?></small>
+          </div>
+          <div class="inst-actions">
+            <?php if ($r['status'] === 'aguardando_aprovacao'): ?>
+              <form method="post" action="/revisoes/<?= (int) $r['id'] ?>" class="d-flex gap-1 align-items-center"><?= csrf_field() ?><input type="hidden" name="action" value="cost">
+                <label class="visually-hidden" for="rc-<?= (int) $r['id'] ?>">Custo extra</label><input class="form-control form-control-sm rev-cost" id="rc-<?= (int) $r['id'] ?>" name="extra_cost" inputmode="decimal" placeholder="R$ 0,00" value="<?= $r['extra_cost'] ? e(number_format((float) $r['extra_cost'], 2, ',', '.')) : '' ?>">
+                <button class="btn btn-sm btn-outline-dark">Salvar valor</button></form>
+              <?php if ((float) $r['extra_cost'] > 0): ?>
+              <details class="pay"><summary class="btn btn-sm btn-dark">Cliente aprovou</summary>
+                <form method="post" action="/revisoes/<?= (int) $r['id'] ?>" class="pay-form"><?= csrf_field() ?><input type="hidden" name="action" value="approve_cost">
+                  <label class="form-label small" for="ra-<?= (int) $r['id'] ?>">Quem aprovou <?= e(money((float) $r['extra_cost'])) ?></label><input class="form-control form-control-sm" id="ra-<?= (int) $r['id'] ?>" name="name" maxlength="160" required placeholder="Nome do cliente">
+                  <p class="small text-body-secondary mb-1 mt-1">O valor vira uma parcela no Financeiro, com vencimento em 7 dias. Pelo link de aprovação o cliente também pode aprovar sozinho.</p>
+                  <button class="btn btn-sm btn-dark w-100">Registrar aprovação</button>
+                </form></details>
+              <?php endif; ?>
+              <form method="post" action="/revisoes/<?= (int) $r['id'] ?>"><?= csrf_field() ?><button class="btn btn-sm btn-link link-secondary" name="action" value="refuse">Recusar</button></form>
+            <?php elseif ($r['status'] === 'aberta'): ?>
+              <form method="post" action="/revisoes/<?= (int) $r['id'] ?>" class="d-flex gap-1"><?= csrf_field() ?><button class="btn btn-sm btn-dark" name="action" value="start">Começar</button><button class="btn btn-sm btn-link link-secondary" name="action" value="refuse">Recusar</button></form>
+            <?php elseif ($r['status'] === 'andamento'): ?>
+              <form method="post" action="/revisoes/<?= (int) $r['id'] ?>"><?= csrf_field() ?><button class="btn btn-sm btn-dark" name="action" value="done">Concluir</button></form>
+            <?php elseif ($r['status'] === 'recusada'): ?>
+              <form method="post" action="/revisoes/<?= (int) $r['id'] ?>"><?= csrf_field() ?><button class="btn btn-sm btn-link link-secondary" name="action" value="reopen">Reabrir</button></form>
+            <?php endif; ?>
+          </div>
+        </li>
+        <?php endforeach; ?>
+      </ul>
+      <?php endif; ?>
+      <form method="post" action="/projetos/<?= $pid ?>/revisoes" class="row g-2 align-items-end p-4 pt-3 border-top m-0"><?= csrf_field() ?>
+        <div class="col-12"><label class="form-label small" for="nr-desc">Novo pedido de revisão</label><textarea class="form-control" id="nr-desc" name="description" rows="2" maxlength="4000" required placeholder="O que o cliente pediu para mudar"></textarea></div>
+        <div class="col-md-4"><label class="form-label small" for="nr-type">Tipo</label><select class="form-select" id="nr-type" name="type"><?php foreach ($rv::TYPES as $k => $l): ?><option value="<?= $k ?>"><?= e($l) ?></option><?php endforeach; ?></select></div>
+        <div class="col-md-4"><label class="form-label small" for="nr-phase">Fase</label><select class="form-select" id="nr-phase" name="phase_id"><?php foreach ($phases as $ph): ?><option value="<?= (int) $ph['id'] ?>" <?= $cur && (int) $cur['id'] === (int) $ph['id'] ? 'selected' : '' ?>><?= e($ph['name']) ?></option><?php endforeach; ?></select></div>
+        <div class="col-md-4"><label class="form-label small" for="nr-deliv">Entregável</label><select class="form-select" id="nr-deliv" name="deliverable_id"><option value="">—</option><?php foreach ($deliverables as $d): ?><option value="<?= (int) $d['id'] ?>"><?= e($d['title']) ?></option><?php endforeach; ?></select></div>
+        <div class="col-6 col-md-4"><label class="form-label small" for="nr-due">Prazo</label><input class="form-control" type="date" id="nr-due" name="due_date"></div>
+        <div class="col-6 col-md-4"><label class="form-label small" for="nr-cost">Custo extra (se houver)</label><input class="form-control" id="nr-cost" name="extra_cost" inputmode="decimal" placeholder="R$ 0,00"></div>
+        <div class="col-md-4 d-grid"><button class="btn btn-dark">Registrar pedido</button></div>
+        <p class="col-12 small text-body-secondary mb-0">Correções de erro nosso não contam como rodada. A partir da <?= $inc + 1 ?>ª rodada na fase, ou numa mudança de escopo, o trabalho só começa depois que o cliente aprovar o custo extra.</p>
+      </form>
+    </section>
+
     <?php if ($fin): $sm = $fin['sum']; ?>
     <section class="card card-body p-4" id="financeiro" aria-labelledby="h-fin">
       <div class="d-flex justify-content-between align-items-baseline gap-2 mb-3">

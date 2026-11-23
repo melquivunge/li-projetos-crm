@@ -104,5 +104,13 @@ $sm = Fin::summary(['contract_value' => 10000], [['status' => 'paga', 'amount' =
 $ok($sm['received'] === 5000.0 && $sm['open'] === 5000.0 && $sm['overdue'] === 5000.0 && $sm['labour'] === 600.0 && $sm['margin'] === 9100.0 && $sm['planned'] === 10000.0, 'resumo: recebido ≠ contratado, cancelada fora, margem com horas e despesas');
 $ok(FCT::money('1.234,56') === 1234.56 && FCT::money('R$ 800') === 800.0 && FCT::money('99.9') === 99.9 && FCT::money('-5') === null && FCT::money('abc') === null, 'valores em reais: 1.234,56 / R$ 800');
 
+use App\Revisions as Rev;
+$ok(Rev::included('Inclui 2 rodadas de revisão em cada etapa.') === 2 && Rev::included('Inclui 3 rodadas') === 3 && Rev::included('Inclui duas rodadas de ajuste') === 2 && Rev::included('Cada sessão tem 1 hora.') === 2 && Rev::included(null) === 2, 'rodadas incluídas lidas da política da proposta (padrão 2)');
+$reqs = [['type' => 'revisao', 'status' => 'concluida', 'phase_id' => 5], ['type' => 'revisao', 'status' => 'recusada', 'phase_id' => 5], ['type' => 'correcao', 'status' => 'aberta', 'phase_id' => 5], ['type' => 'revisao', 'status' => 'aberta', 'phase_id' => 6]];
+$ok(Rev::used($reqs, 5) === 1 && Rev::used($reqs, 6) === 1 && Rev::used($reqs, 7) === 0, 'contagem por fase: correção e recusada não contam');
+$ok(Rev::classify('revisao', 0, 2) === [false, 1, 'aberta'] && Rev::classify('revisao', 1, 2) === [false, 2, 'aberta'] && Rev::classify('revisao', 2, 2) === [true, 3, 'aguardando_aprovacao'], '3ª rodada vira extra e espera aprovação do custo');
+$ok(Rev::classify('escopo', 0, 2) === [true, null, 'aguardando_aprovacao'] && Rev::classify('correcao', 9, 2) === [false, null, 'aberta'], 'escopo sempre extra; correção nunca');
+$ok(!Rev::canStart(['status' => 'aguardando_aprovacao']) && Rev::canStart(['status' => 'aberta']) && !Rev::canStart(['status' => 'concluida']), 'só começa sem aprovação pendente');
+
 echo $fail ? "\n$fail falha(s)\n" : "\nTudo certo\n";
 exit($fail ? 1 : 0);

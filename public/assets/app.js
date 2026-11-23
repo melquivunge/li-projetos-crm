@@ -109,3 +109,6 @@ if (document.querySelector('[data-live]')) {
   setInterval(pulse, 60000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) pulse(); });
 }
+
+// Approval link field: select all on focus
+document.querySelectorAll(".deliv-link").forEach((i) => i.addEventListener("focus", () => i.select()));

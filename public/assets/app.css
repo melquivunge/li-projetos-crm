@@ -497,3 +497,33 @@ progress.prog::-moz-progress-bar { background: var(--accent); border-radius: 999
 .fin-sum .is-late { background: #FDE8E7; } .fin-sum .is-late strong { color: #9A1C12; }
 [data-theme="dark"] .fin-sum .is-late { background: #3A1512; } [data-theme="dark"] .fin-sum .is-late strong { color: #F6B4AE; }
 @media (max-width: 575.98px) { .fin-sum { grid-template-columns: repeat(2, minmax(0, 1fr)); } .inst-amount { min-width: 0; text-align: left !important; } .pay-form { right: auto; left: 0; } }
+
+/* ---- Fase E: revisões e aprovações ---- */
+.badge.dstatus-ajustes { background: #FCE7DA; color: #7A2E0B; } [data-theme="dark"] .badge.dstatus-ajustes { background: #3D2414; color: #F5C7A9; }
+.rounds { display: flex; flex-wrap: wrap; gap: .375rem; }
+.round { display: inline-flex; gap: .375rem; align-items: center; font-size: .8125rem; padding: .25rem .625rem; border-radius: 999px; background: var(--surface-2); color: var(--ink-2); }
+.round b { font-weight: 700; color: var(--ink); }
+.round.is-full { background: #FFF1D6; color: #6B4500; } .round.is-full b { color: #6B4500; }
+.round.is-over { background: #FDE8E7; color: #9A1C12; } .round.is-over b { color: #9A1C12; }
+[data-theme="dark"] .round.is-full { background: #3A2C0E; color: #F3D99B; } [data-theme="dark"] .round.is-full b { color: #F3D99B; }
+[data-theme="dark"] .round.is-over { background: #3A1512; color: #F6B4AE; } [data-theme="dark"] .round.is-over b { color: #F6B4AE; }
+.badge.rtype-revisao { background: var(--surface-2); color: var(--ink-2); } .badge.rtype-correcao { background: #E3F0F3; color: #134552; }
+.badge.rtype-escopo { background: #EDE7F6; color: #3F2A73; } .badge.rtype-extra { background: #FDE8E7; color: #9A1C12; }
+.badge.rstatus-aguardando_aprovacao { background: #FFF1D6; color: #6B4500; } .badge.rstatus-aberta { background: #E7EEF9; color: #1E3A6E; }
+.badge.rstatus-andamento { background: var(--accent-soft); color: var(--accent-strong); } .badge.rstatus-concluida { background: #DCF2E3; color: #14532D; }
+.badge.rstatus-recusada { background: #ECEBEA; color: #44403C; }
+[data-theme="dark"] .badge.rtype-correcao { background: #12313A; color: #A9DCE6; } [data-theme="dark"] .badge.rtype-escopo { background: #2A2140; color: #D3C6F0; }
+[data-theme="dark"] .badge.rtype-extra { background: #3A1512; color: #F6B4AE; } [data-theme="dark"] .badge.rstatus-aguardando_aprovacao { background: #3A2C0E; color: #F3D99B; }
+[data-theme="dark"] .badge.rstatus-aberta { background: #1C2A44; color: #BCD0F2; } [data-theme="dark"] .badge.rstatus-concluida { background: #123321; color: #A8E2BE; }
+[data-theme="dark"] .badge.rstatus-recusada { background: #2B2A27; color: #CFC9BF; }
+.rev.is-waiting { box-shadow: inset 3px 0 0 #B7791F; }
+.rev.is-closed { opacity: .6; }
+.rev-desc { white-space: normal; overflow-wrap: anywhere; }
+.rev-cost { width: 110px; }
+.deliv-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .375rem; }
+.deliv-link { flex: 1 1 220px; max-width: 360px; font-size: .75rem; color: var(--muted); }
+.deliv-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: .75rem; }
+.deliv-img { display: grid; gap: .375rem; text-decoration: none; color: var(--ink); font-size: .8125rem; }
+.deliv-img img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: .75rem; border: 1px solid var(--line); background: var(--surface-2); }
+.deliv-doc { display: flex; gap: .75rem; align-items: center; padding: .875rem 1rem; border: 1px solid var(--line); border-radius: .75rem; text-decoration: none; color: var(--ink); }
+.deliv-doc span { display: grid; min-width: 0; } .deliv-doc strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .deliv-doc small { color: var(--muted); }

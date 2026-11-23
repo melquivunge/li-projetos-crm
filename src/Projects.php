@@ -7,7 +7,7 @@ final class Projects
 {
     public const STATUS = ['ativo' => 'Em andamento', 'pausado' => 'Pausado', 'concluido' => 'Concluído', 'cancelado' => 'Cancelado'];
     public const PHASE_STATUS = ['pendente' => 'A fazer', 'andamento' => 'Em andamento', 'concluida' => 'Concluída'];
-    public const DELIVERABLE_STATUS = ['pendente' => 'A fazer', 'producao' => 'Em produção', 'enviado' => 'Enviado ao cliente', 'aprovado' => 'Aprovado'];
+    public const DELIVERABLE_STATUS = ['pendente' => 'A fazer', 'producao' => 'Em produção', 'enviado' => 'Enviado ao cliente', 'ajustes' => 'Ajustes pedidos', 'aprovado' => 'Aprovado'];
     public const DEFAULT_PHASES = ['Briefing validado', 'Conceito', 'Anteprojeto', 'Detalhamento', 'Revisão', 'Aprovação', 'Entrega'];
 
     /** Pure: calendar days in a free-text duration ("15 dias", "2 semanas", "10 dias úteis", "3 a 4 semanas", "1 mês"). Null if unreadable. */
@@ -130,8 +130,8 @@ final class Projects
         $manager = Db::q('SELECT owner_id FROM clients WHERE id = ?', [$p['client_id']])->fetchColumn() ?: null;
         $start = date('Y-m-d');
         $schedule = Db::q('SELECT stage, duration_text FROM proposal_schedule WHERE proposal_id = ? ORDER BY sort', [$p['id']])->fetchAll();
-        Db::q('INSERT INTO projects (client_id, opportunity_id, proposal_id, title, contract_value, manager_id, start_date) VALUES (?,?,?,?,?,?,?)',
-            [$p['client_id'], $opportunityId, $p['id'], mb_substr((string) $p['title'], 0, 160), (float) ($p['total'] ?? 0), $manager, $start]);
+        Db::q('INSERT INTO projects (client_id, opportunity_id, proposal_id, title, contract_value, revisions_included, manager_id, start_date) VALUES (?,?,?,?,?,?,?,?)',
+            [$p['client_id'], $opportunityId, $p['id'], mb_substr((string) $p['title'], 0, 160), (float) ($p['total'] ?? 0), Revisions::included($p['revision_policy'] ?? null), $manager, $start]);
         $id = (int) Db::pdo()->lastInsertId();
         foreach (self::plan($schedule, $start) as $i => $ph) Db::q('INSERT INTO project_phases (project_id, name, sort, due_date) VALUES (?,?,?,?)', [$id, $ph['name'], $i, $ph['due_date']]);
         self::sync($id);

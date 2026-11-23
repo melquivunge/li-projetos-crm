@@ -4,7 +4,7 @@ declare(strict_types=1);
 require dirname(__DIR__) . '/src/bootstrap.php';
 
 use App\Router;
-use App\Controllers\{ApiController, BriefingController, AuthController, ClientController, OpportunityController, TaskController, ProfileController, ProposalController, DashboardController, FinanceController, ProjectController, UserController};
+use App\Controllers\{ApiController, BriefingController, AuthController, ClientController, OpportunityController, TaskController, ProfileController, ProposalController, DashboardController, FinanceController, ProjectController, RevisionController, UserController};
 
 $r = new Router();
 $r->get('/login', [AuthController::class, 'form']);
@@ -47,6 +47,13 @@ $r->post('/parcelas/{id}/cobrar', [FinanceController::class, 'remind']);
 $r->post('/parcelas/{id}', [FinanceController::class, 'update']);
 $r->post('/projetos/{id}/parcelas', [FinanceController::class, 'add']);
 $r->post('/projetos/{id}/despesas', [FinanceController::class, 'addExpense']);
+$r->post('/projetos/{id}/revisoes', [RevisionController::class, 'create']);
+$r->post('/revisoes/{id}', [RevisionController::class, 'update']);
+$r->post('/entregas/{id}/enviar', [RevisionController::class, 'send']);
+$r->post('/entregas/{id}/aprovar', [RevisionController::class, 'approve']);
+$r->get('/e/{token}', [RevisionController::class, 'publicShow']);
+$r->post('/e/{token}', [RevisionController::class, 'publicAnswer']);
+$r->get('/e/{token}/arquivos/{id}', [RevisionController::class, 'publicFile']);
 $r->get('/projetos', [ProjectController::class, 'index']);
 $r->get('/projetos/{id}', [ProjectController::class, 'show']);
 $r->post('/projetos/{id}', [ProjectController::class, 'update']);
