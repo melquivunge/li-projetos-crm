@@ -165,6 +165,14 @@ O schema (`database/schema.sql`) roda sozinho no primeiro `up` (volume `dbdata`)
     - **Para ligar na Hostinger:** hPanel → Avançado → Cron Jobs → comando `php /home/<usuário>/domains/crm.liprojetos.com.br/bin/cron.php` (ajustar ao caminho real), a cada hora.
   - **Ao vivo na tela:** `GET /api/pulse` devolve não lidas e tarefas atrasadas/hoje; o `app.js` consulta a cada minuto (só com a aba visível) e atualiza o sino, os contadores do menu e o título da aba.
   - **Atenção:** projetos de clientes sem responsável ficam sem responsável. Defina um em "Editar projeto".
+- **Produção na Hostinger (22/11/2026):** https://crm.liprojetos.com.br (conta `u886922570`, raiz `public_html/crm`).
+  - Publicação por pacote `.zip` (API da Hostinger): arquivos do git + `vendor/` + `.env.production` renomeado para `.env`. **Cada publicação apaga a pasta do site**; por isso os arquivos enviados ficam em `STORAGE_DIR=/home/u886922570/domains/liprojetos.com.br/crm-storage`, fora dela.
+  - `.htaccess` na raiz manda tudo para `public/` e bloqueia `.env`, `.sql`, `.md` etc.
+  - Banco `u886922570_licrm` (host `localhost`), criado com `bin/install.php` (só roda em banco vazio).
+  - **PHP no cron:** `/usr/bin/php` é 7.4. Usar sempre `/opt/alt/php83/usr/bin/php`. A Hostinger roda o comando dentro de `timeout`, então variáveis vão com `/usr/bin/env VAR=x`.
+  - Cron de hora em hora: `/opt/alt/php83/usr/bin/php /home/u886922570/domains/liprojetos.com.br/public_html/crm/bin/cron.php`.
+  - Admin: `larissa@liprojetos.com.br`. E-mail de envio: `propostas@liprojetos.com.br` (smtp.hostinger.com, 465/ssl).
+  - `.env.production` só existe no computador do Melqui (fora do git). Sem ele não dá para publicar de novo.
 - Migrações: em banco já criado, rodar cada `database/migrations/*.sql` em ordem. O `schema.sql` já inclui todas.
 - O schema já tem as tabelas de todas as fases: clients, client_events, price_items (semeada), proposals, proposal_items, site_events, api_rate.
 
