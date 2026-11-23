@@ -149,11 +149,12 @@ if (zip) zip.addEventListener('input', async () => {
   } catch (_) { /* offline or ViaCEP down: the user types it */ }
 });
 
-// WhatsApp conversation: scroll to the newest, Enter sends, textarea grows, new messages every 10 s
+// WhatsApp inbox: scroll to the newest, Enter sends, textarea grows; every 5 s new messages in the open chat and a fresh chat list
 (() => {
+  const wa = document.querySelector('.wa');
+  if (!wa) return;
   const box = document.getElementById('wa-msgs');
-  if (!box) return;
-  const end = () => { box.scrollTop = box.scrollHeight; };
+  const end = () => { if (box) box.scrollTop = box.scrollHeight; };
   end();
   const ta = document.getElementById('wa-text');
   if (ta) {
@@ -163,7 +164,6 @@ if (zip) zip.addEventListener('input', async () => {
     ta.form.addEventListener('submit', () => { ta.form.querySelector('button[type="submit"]').disabled = true; });
     if (matchMedia('(min-width: 992px)').matches) ta.focus();
   }
-  const anchor = document.getElementById('fim');
   const add = (m) => {
     const d = document.createElement('div');
     d.className = 'wa-msg' + (m.mine ? ' is-mine' : '') + (m.status === 'falhou' ? ' is-failed' : '');
@@ -172,21 +172,29 @@ if (zip) zip.addEventListener('input', async () => {
     s.textContent = (m.mine && m.by ? m.by.split(' ')[0] + ' · ' : '') + m.time + (m.status === 'falhou' ? ' · não enviada' : '');
     d.append(s);
     box.querySelector('.wa-none')?.remove();
-    box.insertBefore(d, anchor);
+    box.insertBefore(d, document.getElementById('fim'));
   };
-  const poll = async () => {
-    if (document.hidden) return;
-    try {
-      const res = await fetch(`${box.dataset.poll}?depois=${box.dataset.last}`, { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
-      if (!res.ok) return;
-      const { messages } = await res.json();
-      if (!messages.length) return;
-      const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
-      messages.forEach(add);
-      box.dataset.last = messages[messages.length - 1].id;
-      if (atBottom) end();
-    } catch { /* offline: next tick */ }
+  const messages = async () => {
+    if (!box) return;
+    const res = await fetch(`${box.dataset.poll}?depois=${box.dataset.last}`, { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
+    if (!res.ok) return;
+    const { messages: list } = await res.json();
+    if (!list.length) return;
+    const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+    list.forEach(add);
+    box.dataset.last = list[list.length - 1].id;
+    if (atBottom) end();
   };
-  setInterval(poll, 10000);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
+  // ponytail: re-renders the page and swaps the list; a 'last change' endpoint if the inbox grows past a few hundred chats
+  const chats = async () => {
+    const list = wa.querySelector('.wa-list');
+    if (!list || list.contains(document.activeElement)) return; // don't disturb someone typing in the search
+    const res = await fetch(location.pathname + location.search, { headers: { Accept: 'text/html' }, credentials: 'same-origin' });
+    if (!res.ok || res.redirected) return; // session expired → /login
+    const fresh = new DOMParser().parseFromString(await res.text(), 'text/html').querySelector('.wa-list');
+    if (fresh && fresh.innerHTML !== list.innerHTML) list.innerHTML = fresh.innerHTML;
+  };
+  const tick = async () => { if (document.hidden) return; try { await messages(); await chats(); } catch { /* offline: next tick */ } };
+  setInterval(tick, 5000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) tick(); });
 })();
