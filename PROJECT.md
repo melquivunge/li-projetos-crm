@@ -165,6 +165,12 @@ O schema (`database/schema.sql`) roda sozinho no primeiro `up` (volume `dbdata`)
     - **Para ligar na Hostinger:** hPanel → Avançado → Cron Jobs → comando `php /home/<usuário>/domains/crm.liprojetos.com.br/bin/cron.php` (ajustar ao caminho real), a cada hora.
   - **Ao vivo na tela:** `GET /api/pulse` devolve não lidas e tarefas atrasadas/hoje; o `app.js` consulta a cada minuto (só com a aba visível) e atualiza o sino, os contadores do menu e o título da aba.
   - **Atenção:** projetos de clientes sem responsável ficam sem responsável. Defina um em "Editar projeto".
+- **Staging (23/11/2026):** https://crm-staging.liprojetos.com.br — mesmo código, banco próprio (`u886922570_licrmstg`), pasta de arquivos própria (`/home/u886922570/domains/crm-staging.liprojetos.com.br/crm-storage`), raiz `domains/crm-staging.liprojetos.com.br/public_html`.
+  - `.env.staging` (fora do git) tem `APP_ENV=staging` e a `SEED_PASSWORD` das contas de demonstração. Com `APP_ENV=staging`: faixa "Ambiente de testes" no topo e **e-mails não são enviados** (`Mail::send` só registra no log).
+  - **Dados fictícios:** `bin/seed-demo.php` (24 clientes em todas as etapas, briefings, propostas, 5 projetos com fases, tarefas, horas, despesas, parcelas — 2 vencidas —, entregáveis com link de aprovação e uma revisão extra esperando o custo). Recusa rodar se `APP_ENV` não for staging/local. Telefones falsos `+5500…`, e-mails `@example.com`. `--repair` refaz os dados se uma execução parou no meio.
+  - Contas: socia@, comercial@, gestora@, designer@, financeiro@demo.example.com (uma para cada papel).
+  - **Bug achado no staging e corrigido também em produção:** o MariaDB da Hostinger abria a conexão em `utf8mb4_general_ci` e as tabelas são `utf8mb4_unicode_ci`; criar ou mover uma oportunidade dava "Illegal mix of collations". `Db::pdo` agora fixa `SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci`.
+  - **Fluxo recomendado:** publicar primeiro no staging, testar, depois na produção.
 - **Fase E (revisões e aprovações): feita (23/11/2026).** Migração `010_revisions.sql`.
   - **Rodadas por fase:** lidas da "Política de revisões" da proposta ("Inclui 2 rodadas…"; padrão 2), em `projects.revisions_included`. Contador por fase na ficha do projeto (amarelo no limite, vermelho acima).
   - **Tipos:** revisão (conta rodada), correção (erro nosso, não conta) e mudança de escopo (sempre extra).
