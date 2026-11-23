@@ -33,6 +33,7 @@ $greet = $hour < 12 ? 'Bom dia' : ($hour < 18 ? 'Boa tarde' : 'Boa noite');
 <link rel="stylesheet" href="/assets/app.css">
 </head>
 <body>
+<?php if (env('APP_ENV') === 'staging'): ?><div class="staging-bar" role="note">Ambiente de testes · dados fictícios · e-mails não são enviados</div><?php endif; ?>
 <a class="visually-hidden-focusable btn btn-dark position-absolute m-2" href="#conteudo">Pular para o conteúdo</a>
 <div class="app">
   <aside class="rail offcanvas-lg offcanvas-start" tabindex="-1" id="rail" aria-label="Menu principal">

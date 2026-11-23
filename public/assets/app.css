@@ -527,3 +527,6 @@ progress.prog::-moz-progress-bar { background: var(--accent); border-radius: 999
 .deliv-img img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: .75rem; border: 1px solid var(--line); background: var(--surface-2); }
 .deliv-doc { display: flex; gap: .75rem; align-items: center; padding: .875rem 1rem; border: 1px solid var(--line); border-radius: .75rem; text-decoration: none; color: var(--ink); }
 .deliv-doc span { display: grid; min-width: 0; } .deliv-doc strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .deliv-doc small { color: var(--muted); }
+
+/* Staging */
+.staging-bar { position: sticky; top: 0; z-index: 1100; background: #7A2E0B; color: #FFF7ED; text-align: center; font-size: .8125rem; font-weight: 600; padding: .375rem 1rem; letter-spacing: .01em; }

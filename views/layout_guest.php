@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="/assets/app.css">
 </head>
 <body>
+<?php if (env('APP_ENV') === 'staging'): ?><div class="staging-bar" role="note">Ambiente de testes · dados fictícios · e-mails não são enviados</div><?php endif; ?>
 <?= $content ?>
 <script src="/assets/app.js"></script>
 </body>

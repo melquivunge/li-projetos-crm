@@ -10,6 +10,7 @@ final class Mail
     /** @param array<array{0:string,1:string,2:string}> $attachments [bytes, filename, mime] */
     public static function send(string $to, string $name, string $subject, string $body, array $attachments = []): ?string
     {
+        if (env('APP_ENV') === 'staging') { error_log("staging: e-mail não enviado para $to: $subject"); return null; } // ponytail: staging never mails real people
         $m = new PHPMailer(true);
         try {
             $m->isSMTP();
