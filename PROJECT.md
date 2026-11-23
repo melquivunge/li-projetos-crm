@@ -165,6 +165,14 @@ O schema (`database/schema.sql`) roda sozinho no primeiro `up` (volume `dbdata`)
     - **Para ligar na Hostinger:** hPanel → Avançado → Cron Jobs → comando `php /home/<usuário>/domains/crm.liprojetos.com.br/bin/cron.php` (ajustar ao caminho real), a cada hora.
   - **Ao vivo na tela:** `GET /api/pulse` devolve não lidas e tarefas atrasadas/hoje; o `app.js` consulta a cada minuto (só com a aba visível) e atualiza o sino, os contadores do menu e o título da aba.
   - **Atenção:** projetos de clientes sem responsável ficam sem responsável. Defina um em "Editar projeto".
+- **Fase E (revisões e aprovações): feita (23/11/2026).** Migração `010_revisions.sql`.
+  - **Rodadas por fase:** lidas da "Política de revisões" da proposta ("Inclui 2 rodadas…"; padrão 2), em `projects.revisions_included`. Contador por fase na ficha do projeto (amarelo no limite, vermelho acima).
+  - **Tipos:** revisão (conta rodada), correção (erro nosso, não conta) e mudança de escopo (sempre extra).
+  - **Trava:** a rodada além das incluídas e a mudança de escopo nascem "Aguardando aprovação do custo" e não podem começar. A equipe define o valor; o cliente aprova pelo link, ou a equipe registra a aprovação dada por WhatsApp. O valor vira uma parcela no Financeiro (vence em 7 dias).
+  - **Link do cliente `/e/{token}`** (enviado por WhatsApp em "Enviar para aprovação"): arquivos mais recentes, "Aprovar" (nome completo + "conferi e aprovo") e "Pedir ajustes" (vira pedido de revisão já classificado e avisa a equipe no sino).
+  - **Aprovações** ficam em `approvals` com nome, data, versão do arquivo, IP e se foram pelo link ou registradas pela equipe.
+  - **Bug evitado:** em `revision_requests`, só `project_id` tem chave estrangeira. Com SET NULL em fase/entregável/parcela, o MySQL recusava excluir o cliente (cascata por dois caminhos).
+  - **Verificado:** `tests/run.php` (5 testes novos), `tests/e2e-revisions.sh`, os e2e das fases anteriores, instalação limpa e a migração a partir do backup; capturas da seção de revisões e da página do cliente no celular.
 - **Fase G (financeiro e cobrança): feita (23/11/2026), adiantada a pedido.** Migração `009_finance.sql`.
   - **Sem API de pagamento** (decisão do Melqui): a chave Pix vai na mensagem de cobrança e o pagamento é registrado à mão, com a forma (Pix, cartão, transferência, boleto, dinheiro).
   - **Parcelas nascem do aceite**, a partir do texto "Forma de pagamento" da proposta: "50% + 50%" (a última vence na entrega do projeto), "3x" (a cada 30 dias), "30% / 40% / 30%". Sem regra legível: pagamento único. Editáveis; aviso quando a soma difere do contrato.
