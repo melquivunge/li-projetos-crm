@@ -99,6 +99,7 @@ final class ApiController
             Opportunities::create($id, $d['service'] ?: ($type === 'meeting_request' ? 'Reunião pelo site' : 'Contato pelo site'), $d['service'], null);
         }
         Db::q("INSERT INTO client_events (client_id, type, body) VALUES (?, 'sistema', ?)", [$id, $body]);
+        if ($d['whatsapp']) Db::q('UPDATE wa_chats SET client_id = ? WHERE phone = ? AND client_id IS NULL', [$id, $d['whatsapp']]);
         Db::q('INSERT INTO site_events (event, location, origin, client_id) VALUES (?, ?, ?, ?)', ['generate_lead', $type, $d['origin'], $id]);
         $owner = Db::q('SELECT owner_id FROM clients WHERE id = ?', [$id])->fetchColumn();
         Notify::clientTeam($owner ? (int) $owner : null, ($existing ? 'Novo contato de ' : 'Novo lead: ') . $d['name'] . ($type === 'meeting_request' ? ' (pedido de reunião)' : ''), "/clientes/$id");

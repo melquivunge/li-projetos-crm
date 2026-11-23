@@ -139,7 +139,7 @@ final class ProfileController
         $t = TaskController::counts((int) $u['id']);
         header('Content-Type: application/json');
         header('Cache-Control: no-store');
-        echo json_encode(['unread' => Notify::unreadCount((int) $u['id']), 'late' => $t['late'], 'today' => $t['today']]);
+        echo json_encode(['unread' => Notify::unreadCount((int) $u['id']), 'late' => $t['late'], 'today' => $t['today']] + (Auth::can('crm') ? ['wa' => WhatsAppController::unread()] : []));
     }
 
     public static function readAll(): void

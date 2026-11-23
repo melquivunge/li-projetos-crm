@@ -96,6 +96,14 @@ $missing = array_keys(array_filter(['CPF/CNPJ' => !$c['document'], 'endereço' =
         <button class="btn btn-dark">Adicionar tarefa</button>
       </form>
     </section>
+    <?php $waChat = App\Db::q('SELECT id, last_preview, last_message_at, unread FROM wa_chats WHERE client_id = ? ORDER BY last_message_at DESC LIMIT 1', [$c['id']])->fetch(); ?>
+    <?php if ($waChat): ?>
+    <section class="card card-body mb-3" aria-labelledby="h-wa">
+      <h2 class="h6 d-flex align-items-center gap-2" id="h-wa"><?= icon('whatsapp', 'icon icon-sm') ?>WhatsApp<?php if ($waChat['unread']): ?><span class="wa-unread ms-auto"><?= (int) $waChat['unread'] ?></span><?php endif; ?></h2>
+      <p class="small text-body-secondary mb-2 text-truncate"><?= e((string) $waChat['last_preview']) ?><?php if ($waChat['last_message_at']): ?> · <?= e(date('d/m H:i', strtotime($waChat['last_message_at']))) ?><?php endif; ?></p>
+      <a class="btn btn-sm btn-outline-dark align-self-start" href="/whatsapp/<?= (int) $waChat['id'] ?>">Abrir conversa</a>
+    </section>
+    <?php endif; ?>
     <?php $portal = App\Db::q('SELECT active, password_hash IS NOT NULL AS has_pw, invite_expires, last_login_at FROM client_users WHERE client_id = ?', [$c['id']])->fetch(); ?>
     <section class="card card-body mb-3" aria-labelledby="h-portal">
       <h2 class="h6 d-flex align-items-center gap-2" id="h-portal"><?= icon('user', 'icon icon-sm') ?>Portal do cliente</h2>

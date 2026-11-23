@@ -4,7 +4,7 @@ declare(strict_types=1);
 require dirname(__DIR__) . '/src/bootstrap.php';
 
 use App\Router;
-use App\Controllers\{ApiController, BriefingController, AuthController, ClientController, OpportunityController, TaskController, ProfileController, ProposalController, DashboardController, BrandController, FinanceController, ProjectController, PortalController, RevisionController, UserController};
+use App\Controllers\{ApiController, BriefingController, AuthController, ClientController, OpportunityController, TaskController, ProfileController, ProposalController, DashboardController, BrandController, FinanceController, ProjectController, PortalController, RevisionController, UserController, WhatsAppController};
 
 $r = new Router();
 $r->get('/login', [AuthController::class, 'form']);
@@ -111,5 +111,10 @@ $r->post('/portal/convite/{token}', [PortalController::class, 'acceptInvite']);
 $r->get('/portal/arquivos/{id}', [PortalController::class, 'file']);
 $r->post('/api/lead', [ApiController::class, 'lead']);
 $r->post('/api/event', [ApiController::class, 'event']);
+$r->post('/api/whatsapp/{token}', [WhatsAppController::class, 'webhook']);
+$r->get('/whatsapp', [WhatsAppController::class, 'index']);
+$r->get('/whatsapp/{id}', [WhatsAppController::class, 'show']);
+$r->get('/whatsapp/{id}/mensagens', [WhatsAppController::class, 'poll']);
+$r->post('/whatsapp/{id}/enviar', [WhatsAppController::class, 'send']);
 
 $r->dispatch($_SERVER['REQUEST_METHOD'], $_SERVER['REQUEST_URI']);

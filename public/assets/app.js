@@ -101,7 +101,7 @@ if (document.querySelector('[data-live]')) {
       if (!res.ok || !(res.headers.get('content-type') || '').includes('json')) return;
       const d = await res.json();
       set('unread', d.unread); set('unread-dot', d.unread, d.unread > 9 ? '9+' : String(d.unread));
-      const t = d.late + d.today; set('tasks', t);
+      const t = d.late + d.today; set('tasks', t); if ('wa' in d) set('wa', d.wa);
       document.querySelectorAll('[data-live="tasks"]').forEach((el) => el.classList.toggle('count-late', d.late > 0));
       document.title = (d.unread ? `(${d.unread}) ` : '') + base;
     } catch { /* offline: try again next minute */ }
@@ -148,3 +148,45 @@ if (zip) zip.addEventListener('input', async () => {
     if (a.street) document.getElementById('c-num')?.focus();
   } catch (_) { /* offline or ViaCEP down: the user types it */ }
 });
+
+// WhatsApp conversation: scroll to the newest, Enter sends, textarea grows, new messages every 10 s
+(() => {
+  const box = document.getElementById('wa-msgs');
+  if (!box) return;
+  const end = () => { box.scrollTop = box.scrollHeight; };
+  end();
+  const ta = document.getElementById('wa-text');
+  if (ta) {
+    const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 160) + 'px'; };
+    ta.addEventListener('input', grow);
+    ta.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); if (ta.value.trim()) ta.form.requestSubmit(); } });
+    ta.form.addEventListener('submit', () => { ta.form.querySelector('button[type="submit"]').disabled = true; });
+    if (matchMedia('(min-width: 992px)').matches) ta.focus();
+  }
+  const anchor = document.getElementById('fim');
+  const add = (m) => {
+    const d = document.createElement('div');
+    d.className = 'wa-msg' + (m.mine ? ' is-mine' : '') + (m.status === 'falhou' ? ' is-failed' : '');
+    const p = document.createElement('p'); p.textContent = m.body; d.append(p);
+    const s = document.createElement('span'); s.className = 'wa-meta';
+    s.textContent = (m.mine && m.by ? m.by.split(' ')[0] + ' · ' : '') + m.time + (m.status === 'falhou' ? ' · não enviada' : '');
+    d.append(s);
+    box.querySelector('.wa-none')?.remove();
+    box.insertBefore(d, anchor);
+  };
+  const poll = async () => {
+    if (document.hidden) return;
+    try {
+      const res = await fetch(`${box.dataset.poll}?depois=${box.dataset.last}`, { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
+      if (!res.ok) return;
+      const { messages } = await res.json();
+      if (!messages.length) return;
+      const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+      messages.forEach(add);
+      box.dataset.last = messages[messages.length - 1].id;
+      if (atBottom) end();
+    } catch { /* offline: next tick */ }
+  };
+  setInterval(poll, 10000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
+})();

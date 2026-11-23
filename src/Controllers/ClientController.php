@@ -68,7 +68,26 @@ final class ClientController
     public static function create(): void
     {
         Auth::requirePerm('crm');
-        view('client_form', ['c' => ['owner_id' => Auth::id()], 'errors' => [], 'owners' => self::owners()]);
+        $c = ['owner_id' => Auth::id()];
+        if ($w = self::waChat((int) ($_GET['wa'] ?? 0))) $c += ['name' => $w['name'] ?? '', 'whatsapp' => $w['phone'], 'origin' => 'WhatsApp', 'wa_chat' => $w['id']];
+        view('client_form', ['c' => $c, 'errors' => [], 'owners' => self::owners()]);
+    }
+
+    /** A WhatsApp conversation not yet linked to a client ("Cadastrar cliente" in the inbox). */
+    private static function waChat(int $id): ?array
+    {
+        return $id ? (Db::q('SELECT * FROM wa_chats WHERE id = ? AND client_id IS NULL', [$id])->fetch() ?: null) : null;
+    }
+
+    /** Links the client's WhatsApp conversation (the one opened from the inbox, or any unlinked chat with the same number). */
+    private static function linkWhatsApp(int $clientId, ?string $phone, ?array $chat = null): void
+    {
+        if ($chat) {
+            Db::q('UPDATE wa_chats SET client_id = ? WHERE id = ? AND client_id IS NULL', [$clientId, $chat['id']]);
+            $first = Db::q('SELECT body FROM wa_messages WHERE chat_id = ? AND from_me = 0 ORDER BY id LIMIT 1', [$chat['id']])->fetchColumn();
+            Clients::event($clientId, 'sistema', 'Cadastrado a partir do WhatsApp.' . ($first ? "\nPrimeira mensagem: " . mb_substr((string) $first, 0, 500) : ''));
+        }
+        if ($phone) Db::q('UPDATE wa_chats SET client_id = ? WHERE phone = ? AND client_id IS NULL', [$clientId, $phone]);
     }
 
     /** Team members always own what they create; admins may assign. */
@@ -104,7 +123,9 @@ final class ClientController
         $id = (int) Db::pdo()->lastInsertId();
         Clients::saveProfile($id, $pf);
         Opportunities::create($id, $d['service'] ?: 'Projeto', $d['service'], self::ownerFromPost(null), 'novo');
-        Clients::event($id, 'sistema', 'Cliente cadastrado manualmente.');
+        $chat = self::waChat((int) ($_POST['wa_chat'] ?? 0));
+        Clients::event($id, 'sistema', $chat ? 'Cliente cadastrado pela equipe.' : 'Cliente cadastrado manualmente.');
+        self::linkWhatsApp($id, $d['whatsapp'], $chat);
         Audit::log('client.create', 'client', $id);
         flash('Cliente cadastrado.');
         redirect("/clientes/$id");
@@ -145,6 +166,7 @@ final class ClientController
         Db::q('UPDATE clients SET name=?, whatsapp=?, email=?, city=?, service=?, area_m2=?, origin=?, gclid=?, owner_id=? WHERE id=?',
             [$d['name'], $d['whatsapp'], $d['email'], $d['city'], $d['service'], $d['area_m2'], $d['origin'], $d['gclid'], $owner, $c['id']]);
         Clients::saveProfile((int) $c['id'], $pf);
+        self::linkWhatsApp((int) $c['id'], $d['whatsapp']);
         if ($owner !== $prev) Clients::event((int) $c['id'], 'sistema', 'Responsável alterado para ' . (self::owners()[$owner] ?? 'ninguém') . '.');
         Audit::log('client.update', 'client', (int) $c['id']);
         flash('Dados salvos.');

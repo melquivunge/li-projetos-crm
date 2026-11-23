@@ -7,6 +7,7 @@ $inv = fn(string $k) => isset($errors[$k]) ? ' is-invalid" aria-invalid="true" a
 ?>
 <h1 class="h3 mb-4"><?= $editing ? 'Editar cliente' : 'Novo cliente' ?></h1>
 <?php if ($errors): ?><div class="alert alert-danger" role="alert">Confira os campos destacados.</div><?php endif; ?>
+<?php if (!$editing && !empty($c['wa_chat'])): ?><div class="alert alert-light border d-flex gap-2 align-items-center mw-760"><?= icon('whatsapp', 'icon icon-sm') ?><span>Dados vindos da conversa no WhatsApp. Confira o nome e complete o que souber; a conversa fica ligada a este cliente.</span></div><?php endif; ?>
 <form method="post" action="<?= $editing ? '/clientes/' . (int) $c['id'] : '/clientes' ?>" class="card card-body mw-760" novalidate>
   <?= csrf_field() ?>
   <div class="row g-3">
@@ -27,6 +28,7 @@ $inv = fn(string $k) => isset($errors[$k]) ? ' is-invalid" aria-invalid="true" a
       </select></div>
     <?php endif; ?>
     <input type="hidden" name="gclid" value="<?= $v('gclid') ?>">
+    <?php if (!$editing && !empty($c['wa_chat'])): ?><input type="hidden" name="wa_chat" value="<?= (int) $c['wa_chat'] ?>"><?php endif; ?>
 
     <fieldset class="col-12 form-group-sec"><legend>Documentos e endereço <small>para o contrato e a cobrança</small></legend>
       <div class="row g-3">
