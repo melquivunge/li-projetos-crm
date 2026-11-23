@@ -37,10 +37,11 @@ final class ApiController
     /** Shared guards. Returns the decoded body. */
     private static function guard(string $bucket): array
     {
-        $site = (string) env('SITE_ORIGIN', '');
+        // SITE_ORIGIN may list several origins, e.g. "https://liprojetos.com.br,https://www.liprojetos.com.br"
+        $allowed = array_values(array_filter(array_map('trim', explode(',', (string) env('SITE_ORIGIN', '')))));
         $origin = (string) ($_SERVER['HTTP_ORIGIN'] ?? '');
-        if ($site === '' || !hash_equals($site, $origin)) self::json(403, ['error' => 'origin']);
-        header('Access-Control-Allow-Origin: ' . $site);
+        if (!in_array($origin, $allowed, true)) self::json(403, ['error' => 'origin']);
+        header('Access-Control-Allow-Origin: ' . $origin);
         header('Vary: Origin');
 
         $raw = file_get_contents('php://input', false, null, 0, 8192) ?: '';
