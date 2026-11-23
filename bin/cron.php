@@ -7,7 +7,7 @@ require dirname(__DIR__) . '/src/bootstrap.php';
 
 use App\{Db, Notify};
 
-$lock = fopen(dirname(__DIR__) . '/storage/cron.lock', 'c');
+$lock = (is_dir(storage_path()) || mkdir(storage_path(), 0750, true)) ? fopen(storage_path('cron.lock'), 'c') : false;
 if (!$lock || !flock($lock, LOCK_EX | LOCK_NB)) { echo "Outra execução em andamento.\n"; exit(0); }
 
 $sent = ['tarefas' => 0, 'fases' => 0, 'propostas' => 0];

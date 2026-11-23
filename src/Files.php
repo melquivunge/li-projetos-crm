@@ -11,7 +11,6 @@ final class Files
     public const TYPES = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/heic' => 'heic', 'application/pdf' => 'pdf', 'image/vnd.dwg' => 'dwg'];
     /** Shown in the browser; everything else (DWG, HEIC) is a download. */
     private const INLINE = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
-    private const DIR = __DIR__ . '/../storage/files/';
     private const PATH_RE = '#^\d{4}/\d{2}/[a-f0-9]{32}\.[a-z]+$#';
 
     /** Pure: validation of an upload. Returns an error message or null. */
@@ -54,8 +53,8 @@ final class Files
             $mime = (string) (new \finfo(FILEINFO_MIME_TYPE))->file($u['tmp_name']);
             if ($err = self::check($mime, (int) $u['size'])) { $errors[] = "$name: $err"; continue; }
             $rel = date('Y/m/') . bin2hex(random_bytes(16)) . '.' . self::TYPES[$mime];
-            if (!is_dir(dirname(self::DIR . $rel))) mkdir(dirname(self::DIR . $rel), 0750, true);
-            if (!move_uploaded_file($u['tmp_name'], self::DIR . $rel)) { $errors[] = "$name: falha ao salvar."; continue; }
+            if (!is_dir(dirname(storage_path('files/') . $rel))) mkdir(dirname(storage_path('files/') . $rel), 0750, true);
+            if (!move_uploaded_file($u['tmp_name'], storage_path('files/') . $rel)) { $errors[] = "$name: falha ao salvar."; continue; }
             $ver = 1 + (int) Db::q('SELECT COUNT(*) FROM files WHERE owner_type = ? AND owner_id = ? AND name = ?', [$ownerType, $ownerId, $name])->fetchColumn();
             Db::q('INSERT INTO files (owner_type, owner_id, client_id, name, mime, size, path, version, uploaded_by, from_client) VALUES (?,?,?,?,?,?,?,?,?,?)',
                 [$ownerType, $ownerId, $clientId, $name, $mime, (int) $u['size'], $rel, $ver, $userId, $fromClient ? 1 : 0]);
@@ -71,7 +70,7 @@ final class Files
 
     public static function send(array $f, bool $download = false): never
     {
-        $full = self::DIR . $f['path'];
+        $full = storage_path('files/') . $f['path'];
         if (!preg_match(self::PATH_RE, $f['path']) || !is_file($full)) abort(404);
         $inline = !$download && in_array($f['mime'], self::INLINE, true);
         header('Content-Type: ' . $f['mime']);
@@ -85,7 +84,7 @@ final class Files
 
     public static function remove(array $f): void
     {
-        $full = self::DIR . $f['path'];
+        $full = storage_path('files/') . $f['path'];
         if (preg_match(self::PATH_RE, $f['path']) && is_file($full)) unlink($full);
         Db::q('DELETE FROM files WHERE id = ?', [$f['id']]);
     }

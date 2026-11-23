@@ -1,6 +1,12 @@
 <?php
 declare(strict_types=1);
 
+/** Uploads, avatars and the cron lock. STORAGE_DIR (outside the web root in production) survives redeploys. */
+function storage_path(string $sub = ''): string
+{
+    return rtrim(env('STORAGE_DIR') ?: dirname(__DIR__) . '/storage', '/') . '/' . $sub;
+}
+
 function env(string $key, ?string $default = null): ?string
 {
     $v = $_ENV[$key] ?? getenv($key);

@@ -1,0 +1,8 @@
+# Produção (Hostinger): o subdomínio aponta para a raiz do projeto. Tudo vai para public/;
+# .env, src/, vendor/, database/ etc. nunca são servidos.
+Options -Indexes
+<FilesMatch "^\.|\.(sql|md|lock|json|sh|yml)$">
+  Require all denied
+</FilesMatch>
+RewriteEngine On
+RewriteRule ^(.*)$ public/$1 [L]

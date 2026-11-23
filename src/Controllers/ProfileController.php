@@ -7,7 +7,6 @@ use App\{Auth, Audit, Clients, Db, Notify};
 final class ProfileController
 {
     public const THEMES = ['brand' => 'LI Projetos', 'light' => 'Claro', 'dark' => 'Escuro'];
-    private const AVATAR_DIR = __DIR__ . '/../../storage/avatars/';
 
     public static function show(): void
     {
@@ -69,9 +68,9 @@ final class ProfileController
         $dst = imagecreatetruecolor(256, 256);
         imagefill($dst, 0, 0, imagecolorallocate($dst, 255, 255, 255));
         imagecopyresampled($dst, $src, 0, 0, intdiv($w - $s, 2), intdiv($h - $s, 2), 256, 256, $s, $s);
-        if (!is_dir(self::AVATAR_DIR)) mkdir(self::AVATAR_DIR, 0750, true);
+        if (!is_dir(storage_path('avatars/'))) mkdir(storage_path('avatars/'), 0750, true);
         $name = $uid . '-' . bin2hex(random_bytes(8)) . '.jpg';
-        imagejpeg($dst, self::AVATAR_DIR . $name, 85);
+        imagejpeg($dst, storage_path('avatars/') . $name, 85);
         return $name;
     }
 
@@ -79,7 +78,7 @@ final class ProfileController
     {
         $old = Db::q('SELECT avatar FROM users WHERE id = ?', [$uid])->fetchColumn();
         Db::q('UPDATE users SET avatar = ? WHERE id = ?', [$name, $uid]);
-        if ($old && preg_match('/^\d+-[a-f0-9]{16}\.jpg$/', $old) && is_file(self::AVATAR_DIR . $old)) unlink(self::AVATAR_DIR . $old);
+        if ($old && preg_match('/^\d+-[a-f0-9]{16}\.jpg$/', $old) && is_file(storage_path('avatars/') . $old)) unlink(storage_path('avatars/') . $old);
     }
 
     /** Avatars live outside public/; only signed-in users can fetch them. */
@@ -87,10 +86,10 @@ final class ProfileController
     {
         Auth::require();
         $name = Db::q('SELECT avatar FROM users WHERE id = ?', [(int) $id])->fetchColumn();
-        if (!$name || !preg_match('/^\d+-[a-f0-9]{16}\.jpg$/', $name) || !is_file(self::AVATAR_DIR . $name)) abort(404);
+        if (!$name || !preg_match('/^\d+-[a-f0-9]{16}\.jpg$/', $name) || !is_file(storage_path('avatars/') . $name)) abort(404);
         header('Content-Type: image/jpeg');
         header('Cache-Control: private, max-age=86400');
-        readfile(self::AVATAR_DIR . $name);
+        readfile(storage_path('avatars/') . $name);
     }
 
     public static function password(): void
