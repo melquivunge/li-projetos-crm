@@ -88,7 +88,9 @@ $ok(App\Files::check('image/vnd.dwg', 5000) === null && App\Files::check('applic
 
 use App\Finance as Fin; use App\Controllers\FinanceController as FCT;
 $pl = Fin::plan('50% na assinatura + 50% na entrega', 10000, '2026-11-01', '2026-12-20');
-$ok(count($pl) === 2 && $pl[0]['amount'] === 5000.0 && $pl[0]['due_date'] === '2026-11-01' && $pl[1]['due_date'] === '2026-12-20' && $pl[0]['description'] === 'Entrada', 'parcelas: 50% + 50%, a última na entrega');
+$ok(count($pl) === 2 && $pl[0]['amount'] === 5000.0 && $pl[0]['due_date'] === '2026-11-01' && $pl[1]['due_date'] === '2026-12-20' && $pl[0]['description'] === 'Entrada' && $pl[1]['description'] === 'Antes da entrega final', 'parcelas: 50% + 50%, a última no início da fase final');
+$ok(App\Projects::beforeFinal([['due_date' => '2026-12-01'], ['due_date' => '2026-12-20'], ['due_date' => '2026-12-30']]) === '2026-12-20' && App\Projects::beforeFinal([['due_date' => '2026-12-01']]) === '2026-12-01' && App\Projects::beforeFinal([]) === null, 'contrato: última parcela vence quando começa a fase final (antes da entrega)');
+$ok(array_column(Fin::plan('40% + 40% + 20%', 1000, '2026-11-01', '2026-11-20'), 'due_date') === ['2026-11-01', '2026-11-20', '2026-11-20'], 'contrato: nenhuma parcela vence depois da última (antes da entrega)');
 $pl = Fin::plan('Em 3x sem juros', 1000, '2026-11-01');
 $ok(count($pl) === 3 && $pl[0]['amount'] === 333.33 && $pl[2]['amount'] === 333.34 && $pl[1]['due_date'] === '2026-12-01' && array_sum(array_column($pl, 'amount')) === 1000.0, 'parcelas: 3x iguais, centavos na última, 30 dias entre elas');
 $pl = Fin::plan('30% / 40% / 30%', 3500, '2026-11-01');
@@ -104,6 +106,17 @@ $sm = Fin::summary(['contract_value' => 10000], [['status' => 'paga', 'amount' =
 $ok($sm['received'] === 5000.0 && $sm['open'] === 5000.0 && $sm['overdue'] === 5000.0 && $sm['labour'] === 600.0 && $sm['margin'] === 9100.0 && $sm['planned'] === 10000.0, 'resumo: recebido ≠ contratado, cancelada fora, margem com horas e despesas');
 $ok(FCT::money('1.234,56') === 1234.56 && FCT::money('R$ 800') === 800.0 && FCT::money('99.9') === 99.9 && FCT::money('-5') === null && FCT::money('abc') === null, 'valores em reais: 1.234,56 / R$ 800');
 
+$paid = fn($s, $a, $pa = null, $d = '2026-11-01') => ['status' => $s, 'amount' => $a, 'paid_amount' => $pa, 'due_date' => $d];
+$ok(!Fin::paidUp(10000, [$paid('paga', 5000, 5000), $paid('aberta', 5000)]) && Fin::paidUp(10000, [$paid('paga', 5000, 5000), $paid('paga', 5000)]) && !Fin::paidUp(10000, [$paid('paga', 5000, 5000), $paid('cancelada', 5000)]) && Fin::paidUp(0, []) && !Fin::paidUp(990, []), 'anti-calote: originais só com tudo pago (cancelar parcela não quita)');
+$ok(Fin::shouldHold([$paid('aberta', 1, null, '2026-11-16')], '2026-11-23') && !Fin::shouldHold([$paid('aberta', 1, null, '2026-11-17')], '2026-11-23') && !Fin::shouldHold([$paid('paga', 1, 1, '2026-10-01')], '2026-11-23'), 'anti-calote: pausa com 7+ dias de atraso');
+$ok(Clients::document('52998224725') === '529.982.247-25' && Clients::document('529.982.247-24') === null && Clients::document('111.111.111-11') === null && Clients::document('11222333000181') === '11.222.333/0001-81' && Clients::document('11.222.333/0001-80') === null && Clients::document('123') === null, 'perfil: CPF e CNPJ pelos dígitos verificadores');
+[$pf, $pe] = Clients::validateProfile(['document' => '529.982.247-25', 'address_zip' => '70000000', 'address_state' => 'df', 'property_type' => 'casa', 'contact_pref' => 'fax', 'birth_date' => '1990-05-10', 'partner_whatsapp' => '61 99241 4304', 'rg' => ' '], '2026-11-23');
+$ok(!$pe && $pf['address_zip'] === '70000-000' && $pf['address_state'] === 'DF' && $pf['property_type'] === 'casa' && $pf['contact_pref'] === null && $pf['partner_whatsapp'] === '+5561992414304' && $pf['rg'] === null, 'perfil: CEP, UF, opções e vazio = null');
+[, $pe] = Clients::validateProfile(['document' => '123', 'address_zip' => '123', 'address_state' => 'XX', 'birth_date' => '2030-01-01', 'partner_whatsapp' => 'abc'], '2026-11-23');
+$ok(isset($pe['document'], $pe['address_zip'], $pe['address_state'], $pe['birth_date'], $pe['partner_whatsapp']), 'perfil: recusa documento, CEP, UF, nascimento no futuro e WhatsApp inválidos');
+$ps = Fin::payerSummary([$paid('paga', 100, 100, '2026-11-01') + ['paid_at' => '2026-11-01'], $paid('paga', 100, 100, '2026-11-01') + ['paid_at' => '2026-11-05'], $paid('aberta', 50, null, '2026-11-10') + ['paid_at' => null], $paid('cancelada', 999) + ['paid_at' => null]], '2026-11-23');
+$ok($ps['paid'] === 200.0 && $ps['overdue'] === 50.0 && $ps['late_paid'] === 1 && $ps['max_late'] === 13 && $ps['badge'][0] === 'Inadimplente' && $ps['count'] === 3, 'perfil: resumo do pagador (cancelada fora, atraso conta)');
+$ok(Fin::payerSummary([$paid('paga', 100, 100) + ['paid_at' => '2026-10-30']], '2026-11-23')['badge'][0] === 'Bom pagador' && Fin::payerSummary([], '2026-11-23')['badge'][0] === 'Sem histórico', 'perfil: bom pagador / sem histórico');
 use App\Revisions as Rev;
 $ok(Rev::included('Inclui 2 rodadas de revisão em cada etapa.') === 2 && Rev::included('Inclui 3 rodadas') === 3 && Rev::included('Inclui duas rodadas de ajuste') === 2 && Rev::included('Cada sessão tem 1 hora.') === 2 && Rev::included(null) === 2, 'rodadas incluídas lidas da política da proposta (padrão 2)');
 $reqs = [['type' => 'revisao', 'status' => 'concluida', 'phase_id' => 5], ['type' => 'revisao', 'status' => 'recusada', 'phase_id' => 5], ['type' => 'correcao', 'status' => 'aberta', 'phase_id' => 5], ['type' => 'revisao', 'status' => 'aberta', 'phase_id' => 6]];
@@ -119,6 +132,10 @@ $ok(Mk::validColor('#1a5fb4') === '#1A5FB4' && Mk::validColor('red') === null &&
 $ok(Mk::contrast('#000000', '#FFFFFF') === 21.0 && Mk::contrast('#866628', '#FFFDF9') > 4.5 && Mk::contrast('#F5D76E', '#FFFDF9') < 4.5, 'marca: contraste WCAG (avisa cor clara demais)');
 $pl = Mk::palette('#1A5FB4');
 $ok($pl['accent'] === '#1A5FB4' && Mk::contrast($pl['accent_strong'], '#FFFFFF') > Mk::contrast('#1A5FB4', '#FFFFFF') && Mk::contrast($pl['accent_soft'], '#FFFFFF') < 1.5 && Mk::mix('#000000', '#FFFFFF', 0.5) === '#808080', 'marca: tons derivados da cor');
+
+use App\Portal;
+$ok(Portal::attemptKey(' Ana@Ex.com ') === 'portal:ana@ex.com' && mb_strlen(Portal::attemptKey(str_repeat('a', 200) . '@x.com')) === 190, 'portal: tentativas contadas à parte da equipe, chave cabe na coluna');
+$ok(Portal::inviteValid('2026-11-30 10:00:00', strtotime('2026-11-23 10:00:00')) && !Portal::inviteValid('2026-11-23 09:59:59', strtotime('2026-11-23 10:00:00')) && !Portal::inviteValid(null, time()), 'portal: convite vale até expirar');
 
 echo $fail ? "\n$fail falha(s)\n" : "\nTudo certo\n";
 exit($fail ? 1 : 0);

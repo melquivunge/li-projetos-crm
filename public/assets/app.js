@@ -133,3 +133,18 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').cat
     else if (ios) document.getElementById('iosInstall')?.showModal();
   });
 })();
+// Client form: fill the address from the CEP (only empty fields, so nothing typed is overwritten)
+const zip = document.getElementById('c-zip');
+if (zip) zip.addEventListener('input', async () => {
+  const cep = zip.value.replace(/\D/g, '');
+  if (cep.length !== 8 || zip.dataset.last === cep) return;
+  zip.dataset.last = cep;
+  try {
+    const r = await fetch('/api/cep/' + cep, { headers: { Accept: 'application/json' } });
+    if (!r.ok) return;
+    const a = await r.json();
+    const fill = (id, v) => { const el = document.getElementById(id); if (el && v && !el.value.trim()) el.value = v; };
+    fill('c-street', a.street); fill('c-district', a.district); fill('c-city', a.city); fill('c-uf', a.state);
+    if (a.street) document.getElementById('c-num')?.focus();
+  } catch (_) { /* offline or ViaCEP down: the user types it */ }
+});

@@ -57,6 +57,15 @@ foreach (Db::q("SELECT i.id, i.amount, i.due_date, c.name FROM installments i JO
     foreach ($fin as $uid) $sent['parcelas'] += (int) Notify::once((int) $uid, $body, '/financeiro?ver=' . ($m > 0 ? 'vencidas' : 'abertas'), 40);
 }
 
+// 3c. Anti-calote: pausa o projeto com parcela 7+ dias atrasada; retoma quando regulariza (o pagamento também retoma na hora)
+$sent['pausados'] = 0;
+foreach (Db::q("SELECT DISTINCT p.id, p.title, c.name FROM projects p JOIN clients c ON c.id = p.client_id JOIN installments i ON i.project_id = p.id
+                WHERE p.status = 'ativo' OR (p.status = 'pausado' AND p.hold_reason = 'pagamento')") as $r) {
+    if (App\Finance::syncHold((int) $r['id']) !== 'paused') continue;
+    $sent['pausados']++;
+    foreach ($fin as $uid) Notify::once((int) $uid, "Projeto {$r['title']} ({$r['name']}) pausado: parcela com " . App\Finance::HOLD_DAYS . '+ dias de atraso. Novas entregas ficam bloqueadas até o pagamento.', '/projetos/' . $r['id'], 7);
+}
+
 // 4. Limpeza
 Db::q('DELETE FROM login_attempts WHERE attempted_at < NOW() - INTERVAL 1 DAY');
 Db::q('DELETE FROM api_rate WHERE window_start < NOW() - INTERVAL 1 DAY');

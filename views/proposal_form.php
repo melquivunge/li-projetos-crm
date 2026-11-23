@@ -11,6 +11,9 @@ $ta = fn(string $k, int $rows, string $label, string $help = '') => '<div class=
 ?>
 <a class="small link-secondary" href="<?= $editing ? '/propostas/' . (int) $p['id'] : '/clientes/' . (int) $c['id'] ?>">← <?= e($editing ? 'Proposta #' . $p['id'] : $c['name']) ?></a>
 <div class="page-head mt-1"><div><h1 class="h3"><?= $editing ? 'Editar proposta' : 'Nova proposta' ?></h1><p>Para <?= e($c['name']) ?><?= $editing && $p['status'] !== 'rascunho' ? '. Como já foi enviada, salvar cria a versão ' . ((int) $p['version'] + 1) . '.' : '' ?></p></div></div>
+<?php if (!$editing): $ps = App\Finance::payerSummary(App\Db::q("SELECT i.status, i.amount, i.paid_amount, i.due_date, i.paid_at FROM installments i JOIN projects p ON p.id = i.project_id WHERE i.client_id = ? AND p.status <> 'cancelado'", [$c['id']])->fetchAll(), date('Y-m-d')); if (in_array($ps['badge'][0], ['Inadimplente', 'Em atraso'], true)): ?>
+<div class="alert alert-<?= $ps['badge'][0] === 'Inadimplente' ? 'danger' : 'warning' ?>" role="alert"><strong><?= e($ps['badge'][0]) ?>:</strong> este cliente tem <?= e(money($ps['overdue'])) ?> vencido<?= $ps['max_late'] ? ' há ' . (int) $ps['max_late'] . ' dia' . ($ps['max_late'] > 1 ? 's' : '') : '' ?>. Considere pedir a quitação ou uma entrada maior antes de enviar uma nova proposta.</div>
+<?php elseif ($ps['badge'][0] === 'Pagou com atraso'): ?><div class="alert alert-warning" role="alert">Este cliente já pagou <?= (int) $ps['late_paid'] ?> parcela<?= $ps['late_paid'] > 1 ? 's' : '' ?> com atraso.</div><?php endif; endif; ?>
 <?php if ($errors): ?><div class="alert alert-danger" role="alert"><?php foreach ($errors as $er): ?><div><?= e($er) ?></div><?php endforeach; ?></div><?php endif; ?>
 <form method="post" action="<?= $action ?>" novalidate>
   <?= csrf_field() ?>
@@ -50,7 +53,7 @@ $ta = fn(string $k, int $rows, string $label, string $help = '') => '<div class=
             <div class="form-check"><input class="form-check-input" type="checkbox" id="paid-<?= e($i['code']) ?>" name="paid[]" value="<?= e($i['code']) ?>" <?= in_array($i['code'], $d['paid'], true) ? 'checked' : '' ?>><label class="form-check-label" for="paid-<?= e($i['code']) ?>"><?= e($i['label']) ?> (<?= e(money((float) $i['price'])) ?>)</label></div>
           <?php endforeach; ?>
         </fieldset>
-        <?= $ta('payment_terms', 3, 'Forma de pagamento', 'Combinada com este cliente. Ex.: entrada na assinatura e o restante na entrega, PIX ou transferência.') ?>
+        <?= $ta('payment_terms', 3, 'Forma de pagamento', 'Combinada com este cliente. A última parcela deve vencer antes da entrega final. Ex.: 40% na assinatura, 40% na aprovação do anteprojeto e 20% antes da entrega final, Pix ou transferência.') ?>
       </section>
       <section class="card card-body p-4">
         <h2 class="h6 mb-1">4. Cronograma</h2>

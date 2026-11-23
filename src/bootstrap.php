@@ -31,8 +31,10 @@ ini_set('display_errors', env('APP_ENV') === 'local' ? '1' : '0');
 
 if (PHP_SAPI !== 'cli') {
     $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
-    session_set_cookie_params(['lifetime' => 0, 'path' => '/', 'secure' => $https, 'httponly' => true, 'samesite' => 'Lax']);
-    session_name('li_crm');
+    // The client portal has its own cookie: a client never shares a session (or CSRF token) with the team
+    $portal = (bool) preg_match('#^/portal(/|$|\?)#', (string) ($_SERVER['REQUEST_URI'] ?? ''));
+    session_set_cookie_params(['lifetime' => 0, 'path' => $portal ? '/portal' : '/', 'secure' => $https, 'httponly' => true, 'samesite' => 'Lax']);
+    session_name($portal ? 'li_portal' : 'li_crm');
     ini_set('session.use_strict_mode', '1');
     session_start();
 

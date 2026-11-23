@@ -93,6 +93,7 @@ ul { margin: 0; padding-left: 14px; } li { margin-bottom: 3px; } .x li { color: 
     <tr class="grand"><td>Total</td><td class="r"><?= e(money((float) $p['total'])) ?></td></tr>
   </table>
   <?php if (!empty($p['payment_terms'])): ?><div class="box"><h3>Forma de pagamento</h3><p class="pre"><?= e($p['payment_terms']) ?></p></div><?php endif; ?>
+  <div class="box"><h3>Pagamento e entrega dos arquivos</h3><p><?= e(App\Finance::DELIVERY_CLAUSE) ?></p></div>
   </div>
 
   <?php if (!empty($p['revision_policy']) || !empty($p['notes'])): ?>

@@ -82,6 +82,40 @@ final class Files
         exit;
     }
 
+    public const PREVIEWABLE = ['image/jpeg', 'image/png', 'image/webp'];
+    public const LOCKED_MSG = 'Os arquivos originais são liberados quando o pagamento do projeto estiver completo.';
+
+    /**
+     * Anti-calote: while the project isn't fully paid the client gets a small JPEG with a tiled watermark;
+     * PDF, DWG and HEIC are refused. The original never leaves the server.
+     */
+    public static function sendPreview(array $f): never
+    {
+        $full = storage_path('files/') . $f['path'];
+        if (!preg_match(self::PATH_RE, $f['path']) || !is_file($full)) abort(404);
+        if (!in_array($f['mime'], self::PREVIEWABLE, true)) abort(403, self::LOCKED_MSG);
+        $src = @imagecreatefromstring((string) file_get_contents($full)) ?: abort(404);
+        $w = imagesx($src); $h = imagesy($src); $k = min(1, 1000 / max($w, $h)); // ponytail: 1000px is enough to judge, too small to print
+        $img = imagescale($src, max(1, (int) ($w * $k)), max(1, (int) ($h * $k)));
+        imagedestroy($src);
+        [$w, $h] = [imagesx($img), imagesy($img)];
+        $text = 'PRÉVIA · ' . mb_strtoupper(Brand::name());
+        $font = dirname(__DIR__) . '/vendor/dompdf/dompdf/lib/fonts/DejaVuSans-Bold.ttf';
+        $ink = imagecolorallocatealpha($img, 255, 255, 255, 70); $shade = imagecolorallocatealpha($img, 0, 0, 0, 95);
+        $size = max(14, (int) ($w / 28));
+        for ($y = -$h; $y < $h * 2; $y += $size * 6) {
+            for ($x = -$w; $x < $w * 2; $x += $size * 16) {
+                if (is_file($font)) { imagettftext($img, $size, 30, $x + 2, $y + 2, $shade, $font, $text); imagettftext($img, $size, 30, $x, $y, $ink, $font, $text); }
+                else imagestring($img, 5, $x, $y, $text, $ink);
+            }
+        }
+        header('Content-Type: image/jpeg');
+        header('Cache-Control: private, no-store');
+        header("Content-Security-Policy: default-src 'none'; sandbox");
+        imagejpeg($img, null, 70);
+        exit;
+    }
+
     public static function remove(array $f): void
     {
         $full = storage_path('files/') . $f['path'];

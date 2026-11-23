@@ -1,0 +1,22 @@
+-- 013: perfil completo do cliente: documentos e endereço (contrato e cobrança), imóvel, dados pessoais e preferências.
+ALTER TABLE clients
+  ADD COLUMN document VARCHAR(18) NULL AFTER email,
+  ADD COLUMN rg VARCHAR(20) NULL AFTER document,
+  ADD COLUMN address_zip CHAR(9) NULL AFTER city,
+  ADD COLUMN address_street VARCHAR(160) NULL AFTER address_zip,
+  ADD COLUMN address_number VARCHAR(20) NULL AFTER address_street,
+  ADD COLUMN address_extra VARCHAR(80) NULL AFTER address_number,
+  ADD COLUMN address_district VARCHAR(80) NULL AFTER address_extra,
+  ADD COLUMN address_state CHAR(2) NULL AFTER address_district,
+  ADD COLUMN property_address VARCHAR(255) NULL AFTER area_m2,
+  ADD COLUMN property_type ENUM('apartamento','casa','comercial','outro') NULL AFTER property_address,
+  ADD COLUMN property_condo VARCHAR(120) NULL AFTER property_type,
+  ADD COLUMN property_status ENUM('planta','obra','pronto','reforma') NULL AFTER property_condo,
+  ADD COLUMN birth_date DATE NULL AFTER property_status,
+  ADD COLUMN profession VARCHAR(120) NULL AFTER birth_date,
+  ADD COLUMN partner_name VARCHAR(160) NULL AFTER profession,
+  ADD COLUMN partner_whatsapp VARCHAR(20) NULL AFTER partner_name,
+  ADD COLUMN contact_pref ENUM('whatsapp','ligacao','email') NULL AFTER partner_whatsapp,
+  ADD COLUMN contact_time VARCHAR(60) NULL AFTER contact_pref,
+  ADD COLUMN referral VARCHAR(160) NULL AFTER contact_time,
+  ADD INDEX (document);

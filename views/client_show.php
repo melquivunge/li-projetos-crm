@@ -19,21 +19,59 @@ $today = date('Y-m-d');
 </div>
 <div class="row g-4">
   <div class="col-lg-4">
+<?php
+$row = fn(string $label, ?string $val) => $val !== null && $val !== '' ? '<dt class="col-5">' . e($label) . '</dt><dd class="col-7 text-break">' . e($val) . '</dd>' : '';
+$addr = trim(implode(', ', array_filter([trim(($c['address_street'] ?? '') . ' ' . ($c['address_number'] ?? '')), $c['address_extra'] ?? null, $c['address_district'] ?? null, trim(($c['city'] ?? '') . ($c['address_state'] ? ' / ' . $c['address_state'] : ''))])) . ($c['address_zip'] ? ' · CEP ' . $c['address_zip'] : ''), ', ');
+$age = $c['birth_date'] ? (int) date_diff(date_create($c['birth_date']), date_create('today'))->y : null;
+$missing = array_keys(array_filter(['CPF/CNPJ' => !$c['document'], 'endereço' => !$c['address_street'], 'e-mail' => !$c['email']]));
+?>
     <div class="card card-body mb-3">
-      <h2 class="h6 text-body-secondary">Dados</h2>
+      <div class="d-flex justify-content-between align-items-center mb-2"><h2 class="h6 mb-0">Perfil</h2><span class="badge text-bg-<?= e($payer['badge'][1]) ?>" title="Histórico de pagamentos"><?= e($payer['badge'][0]) ?></span></div>
       <dl class="row small mb-0">
         <dt class="col-5">WhatsApp</dt><dd class="col-7"><?= e($c['whatsapp'] ?? '—') ?></dd>
         <dt class="col-5">E-mail</dt><dd class="col-7 text-break"><?php if ($c['email']): ?><a href="mailto:<?= e($c['email']) ?>"><?= e($c['email']) ?></a><?php else: ?>—<?php endif; ?></dd>
-        <dt class="col-5">Cidade</dt><dd class="col-7"><?= e($c['city'] ?? '—') ?></dd>
+        <?= $row('Prefere', isset(Clients::CONTACT_PREF[$c['contact_pref'] ?? '']) ? Clients::CONTACT_PREF[$c['contact_pref']] . ($c['contact_time'] ? ', ' . $c['contact_time'] : '') : $c['contact_time']) ?>
+        <?= $row('Decisor', $c['partner_name'] ? $c['partner_name'] . ($c['partner_whatsapp'] ? ' · ' . $c['partner_whatsapp'] : '') : null) ?>
+        <?= $row('Nascimento', $c['birth_date'] ? date('d/m/Y', strtotime($c['birth_date'])) . " ($age anos)" : null) ?>
+        <?= $row('Profissão', $c['profession']) ?>
+      </dl>
+      <?php if ($missing): ?><p class="small text-body-secondary mt-2 mb-0 profile-missing">Falta para o contrato: <?= e(implode(', ', $missing)) ?>. <a href="/clientes/<?= (int) $c['id'] ?>/editar">Completar</a></p><?php endif; ?>
+      <h3 class="profile-sub">Documentos e endereço</h3>
+      <dl class="row small mb-0">
+        <dt class="col-5">CPF/CNPJ</dt><dd class="col-7"><?= e($c['document'] ?? '—') ?></dd>
+        <?= $row('RG', $c['rg']) ?>
+        <dt class="col-5">Endereço</dt><dd class="col-7"><?= e($addr ?: ($c['city'] ?? '—')) ?></dd>
+      </dl>
+      <h3 class="profile-sub">Imóvel e projeto</h3>
+      <dl class="row small mb-0">
         <dt class="col-5">Serviço</dt><dd class="col-7"><?= e($c['service'] ?? '—') ?></dd>
         <dt class="col-5">Área</dt><dd class="col-7"><?= $c['area_m2'] ? e(rtrim(rtrim((string) $c['area_m2'], '0'), '.')) . ' m²' : '—' ?></dd>
+        <?= $row('Imóvel', trim(implode(' · ', array_filter([Clients::PROPERTY_TYPES[$c['property_type'] ?? ''] ?? null, Clients::PROPERTY_STATUS[$c['property_status'] ?? ''] ?? null, $c['property_condo']])))) ?>
+        <?= $row('Endereço', $c['property_address']) ?>
+      </dl>
+      <h3 class="profile-sub">Origem</h3>
+      <dl class="row small mb-0">
         <dt class="col-5">Origem</dt><dd class="col-7"><?= e($c['origin'] ?? '—') ?><?= $c['gclid'] ? ' <span class="badge text-bg-light">gclid</span>' : '' ?></dd>
+        <?= $row('Indicação', $c['referral']) ?>
         <dt class="col-5">Responsável</dt><dd class="col-7"><?= e($c['owner_name'] ?? '—') ?></dd>
         <dt class="col-5">Cadastro</dt><dd class="col-7"><?= e(date('d/m/Y H:i', strtotime($c['created_at']))) ?></dd>
         <dt class="col-5">1º contato</dt><dd class="col-7"><?= $c['first_contact_at'] ? e(date('d/m/Y H:i', strtotime($c['first_contact_at']))) : '—' ?></dd>
         <dt class="col-5">Consentimento</dt><dd class="col-7"><?= $c['consent_at'] ? e(date('d/m/Y H:i', strtotime($c['consent_at']))) : '—' ?></dd>
       </dl>
     </div>
+    <?php if ($payer['count'] && Auth::can('finance')): ?>
+    <section class="card card-body mb-3" aria-labelledby="h-fin">
+      <h2 class="h6 d-flex align-items-center gap-2" id="h-fin"><?= icon('coins', 'icon icon-sm') ?>Financeiro</h2>
+      <dl class="row small mb-0">
+        <dt class="col-5">Contratado</dt><dd class="col-7"><?= e(money($payer['contracted'])) ?></dd>
+        <dt class="col-5">Pago</dt><dd class="col-7"><?= e(money($payer['paid'])) ?></dd>
+        <dt class="col-5">Em aberto</dt><dd class="col-7"><?= e(money($payer['open'])) ?></dd>
+        <?php if ($payer['overdue'] > 0): ?><dt class="col-5 text-danger">Vencido</dt><dd class="col-7 text-danger"><?= e(money($payer['overdue'])) ?> · <?= (int) $payer['max_late'] ?> dia<?= $payer['max_late'] > 1 ? 's' : '' ?> de atraso</dd><?php endif; ?>
+        <?php if ($payer['late_paid']): ?><dt class="col-5">Pagou atrasado</dt><dd class="col-7"><?= (int) $payer['late_paid'] ?> de <?= (int) $payer['count'] ?> parcelas</dd><?php endif; ?>
+      </dl>
+      <a class="small mt-2" href="/financeiro">Abrir no financeiro</a>
+    </section>
+    <?php endif; ?>
     <section class="card card-body mb-3" aria-labelledby="h-tasks">
       <h2 class="h6 d-flex align-items-center gap-2" id="h-tasks"><?= icon('check', 'icon icon-sm') ?>Tarefas</h2>
       <?php $open = array_filter($tasks, fn($t) => !$t['done_at']); if (!$open): ?><p class="small text-body-secondary">Nenhuma tarefa aberta. Todo cliente em andamento deveria ter um próximo passo com data.</p><?php endif; ?>
@@ -57,6 +95,15 @@ $today = date('Y-m-d');
         <?php if (count($opps) > 1): ?><label class="visually-hidden" for="t-opp">Oportunidade</label><select class="form-select" id="t-opp" name="opportunity_id"><option value="">Sem oportunidade específica</option><?php foreach ($opps as $o): ?><option value="<?= (int) $o['id'] ?>"><?= e($o['title']) ?></option><?php endforeach; ?></select><?php elseif ($opps): ?><input type="hidden" name="opportunity_id" value="<?= (int) $opps[0]['id'] ?>"><?php endif; ?>
         <button class="btn btn-dark">Adicionar tarefa</button>
       </form>
+    </section>
+    <?php $portal = App\Db::q('SELECT active, password_hash IS NOT NULL AS has_pw, invite_expires, last_login_at FROM client_users WHERE client_id = ?', [$c['id']])->fetch(); ?>
+    <section class="card card-body mb-3" aria-labelledby="h-portal">
+      <h2 class="h6 d-flex align-items-center gap-2" id="h-portal"><?= icon('user', 'icon icon-sm') ?>Portal do cliente</h2>
+      <p class="small text-body-secondary mb-2"><?php if (!$portal || !$portal['active']): ?>O cliente acompanha fases, arquivos, aprovações e pagamentos com login próprio (o e-mail do cadastro).<?php elseif ($portal['has_pw']): ?>Acesso ativo<?= $portal['last_login_at'] ? ' · último acesso em ' . e(date('d/m/Y H:i', strtotime($portal['last_login_at']))) : '' ?>.<?php else: ?>Convite enviado<?= $portal['invite_expires'] ? ', vale até ' . e(date('d/m H:i', strtotime($portal['invite_expires']))) : '' ?>. O cliente ainda não criou a senha.<?php endif; ?></p>
+      <div class="d-flex flex-wrap gap-2">
+        <form method="post" action="/clientes/<?= (int) $c['id'] ?>/portal"><?= csrf_field() ?><button class="btn btn-sm btn-outline-dark"<?= $c['email'] ? '' : ' disabled title="Cadastre o e-mail primeiro"' ?>><?= $portal && $portal['active'] ? 'Enviar novo convite' : 'Convidar para o portal' ?></button></form>
+        <?php if ($portal && $portal['active']): ?><form method="post" action="/clientes/<?= (int) $c['id'] ?>/portal"><?= csrf_field() ?><input type="hidden" name="action" value="revoke"><button class="btn btn-sm btn-link link-danger">Desativar acesso</button></form><?php endif; ?>
+      </div>
     </section>
     <?php if (Auth::isAdmin()): ?>
     <form method="post" action="/clientes/<?= (int) $c['id'] ?>/excluir" class="card card-body border-danger-subtle">

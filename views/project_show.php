@@ -30,6 +30,7 @@ $openTasks = array_filter($tasks, fn($t) => !$t['done_at']);
   </div>
 </form>
 
+<?php if ($p['status'] === 'pausado' && ($p['hold_reason'] ?? '') === 'pagamento'): ?><div class="alert alert-warning" role="alert"><strong>Pausado por pagamento em atraso.</strong> Parcela com <?= App\Finance::HOLD_DAYS ?>+ dias de atraso: novas entregas ficam bloqueadas e o cliente vê só prévias com marca d'água. Volta sozinho quando o pagamento for registrado.</div><?php elseif (!App\Finance::projectPaidUp($p)): ?><p class="small text-body-secondary d-flex align-items-center gap-1"><?= icon('shield', 'icon icon-sm') ?>Anti-calote ativo: o cliente vê prévias com marca d'água até quitar o projeto.</p><?php endif; ?>
 <div class="row g-4">
   <div class="col-xl-8 d-grid gap-4 align-content-start">
 

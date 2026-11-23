@@ -77,6 +77,7 @@ $sec = 0; $n = function () use (&$sec) { return sprintf('%02d', ++$sec); };
       <div class="grand"><dt>Total</dt><dd class="tnum"><?= e(money((float) $p['total'])) ?></dd></div>
     </dl>
     <?php if (!empty($p['payment_terms'])): ?><div class="doc-box"><h3>Forma de pagamento</h3><p class="pre-wrap mb-0"><?= e($p['payment_terms']) ?></p></div><?php endif; ?>
+    <div class="doc-box"><h3>Pagamento e entrega dos arquivos</h3><p class="mb-0"><?= e(App\Finance::DELIVERY_CLAUSE) ?></p></div>
   </section>
 
   <?php if (!empty($p['revision_policy']) || !empty($p['notes'])): ?>

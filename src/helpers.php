@@ -38,7 +38,8 @@ function redirect(string $path): never
 function abort(int $code, string $message = ''): never
 {
     http_response_code($code);
-    view('error', ['code' => $code, 'message' => $message ?: ($code === 403 ? 'Acesso negado.' : 'Página não encontrada.')]);
+    $portal = str_starts_with((string) ($_SERVER['REQUEST_URI'] ?? ''), '/portal');
+    view('error', ['code' => $code, 'message' => $message ?: ($code === 403 ? 'Acesso negado.' : 'Página não encontrada.'), 'home' => $portal ? '/portal' : '/'], $portal ? 'layout_guest' : 'layout');
     exit;
 }
 

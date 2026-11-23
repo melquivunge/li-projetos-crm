@@ -492,3 +492,62 @@ CREATE TABLE revision_requests (
   -- só project_id tem FK: SET NULL em fase/entregável junto com o CASCADE do projeto faz o MySQL recusar a exclusão do cliente
   FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 011: portal do cliente. Um acesso por cliente; convite por link (guardado só o hash do token, vale 7 dias).
+CREATE TABLE client_users (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  client_id BIGINT UNSIGNED NOT NULL UNIQUE,
+  email VARCHAR(190) NOT NULL UNIQUE,
+  password_hash VARCHAR(255) NULL,
+  invite_hash CHAR(64) NULL UNIQUE,
+  invite_expires DATETIME NULL,
+  active TINYINT(1) NOT NULL DEFAULT 1,
+  last_login_at DATETIME NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 012: anti-calote. Projeto pausado automaticamente por pagamento em atraso (volta sozinho quando regulariza).
+ALTER TABLE projects ADD COLUMN hold_reason VARCHAR(20) NULL AFTER status;
+
+-- 013: perfil completo do cliente: documentos e endereço (contrato e cobrança), imóvel, dados pessoais e preferências.
+ALTER TABLE clients
+  ADD COLUMN document VARCHAR(18) NULL AFTER email,
+  ADD COLUMN rg VARCHAR(20) NULL AFTER document,
+  ADD COLUMN address_zip CHAR(9) NULL AFTER city,
+  ADD COLUMN address_street VARCHAR(160) NULL AFTER address_zip,
+  ADD COLUMN address_number VARCHAR(20) NULL AFTER address_street,
+  ADD COLUMN address_extra VARCHAR(80) NULL AFTER address_number,
+  ADD COLUMN address_district VARCHAR(80) NULL AFTER address_extra,
+  ADD COLUMN address_state CHAR(2) NULL AFTER address_district,
+  ADD COLUMN property_address VARCHAR(255) NULL AFTER area_m2,
+  ADD COLUMN property_type ENUM('apartamento','casa','comercial','outro') NULL AFTER property_address,
+  ADD COLUMN property_condo VARCHAR(120) NULL AFTER property_type,
+  ADD COLUMN property_status ENUM('planta','obra','pronto','reforma') NULL AFTER property_condo,
+  ADD COLUMN birth_date DATE NULL AFTER property_status,
+  ADD COLUMN profession VARCHAR(120) NULL AFTER birth_date,
+  ADD COLUMN partner_name VARCHAR(160) NULL AFTER profession,
+  ADD COLUMN partner_whatsapp VARCHAR(20) NULL AFTER partner_name,
+  ADD COLUMN contact_pref ENUM('whatsapp','ligacao','email') NULL AFTER partner_whatsapp,
+  ADD COLUMN contact_time VARCHAR(60) NULL AFTER contact_pref,
+  ADD COLUMN referral VARCHAR(160) NULL AFTER contact_time,
+  ADD INDEX (document);
+
+-- 014: revisão dos textos dos modelos de proposta e das perguntas do briefing.
+-- Só troca o texto que ainda está igual ao da instalação (WHERE com o texto antigo): o que as sócias já editaram fica.
+UPDATE proposal_templates SET scope = 'Projeto de arquitetura da sua casa nova, reforma ou ampliação: estudo do terreno e do programa da família, planta, cortes e fachadas, e o projeto legal para aprovação na administração regional ou na prefeitura e no condomínio.' WHERE service = 'Projetos de Arquitetura' AND scope = 'Projeto de arquitetura da sua casa nova ou reforma: estudo do terreno, planta, fachadas e projeto para aprovação na prefeitura (administração regional) e no condomínio.';
+UPDATE proposal_templates SET deliverables = 'Estudo de insolação e ventilação\nEstudo preliminar com a planta e a volumetria\nAnteprojeto com plantas, cortes e fachadas\nProjeto legal para o alvará, inclusive em condomínios regularizados\nMaquete 3D para aprovar antes da obra' WHERE service = 'Projetos de Arquitetura' AND deliverables = 'Estudo de insolação e ventilação\nPlantas, cortes e fachadas\nProjeto legal para o alvará, inclusive em condomínios regularizados\nMaquete 3D para aprovar antes da obra';
+UPDATE proposal_templates SET exclusions = 'Execução, gerenciamento ou acompanhamento de obra\nProjetos de engenharia (estrutural, elétrico, hidráulico e outros complementares)\nLevantamento topográfico e sondagem do terreno\nTaxas, emolumentos e custos de aprovação nos órgãos e no condomínio' WHERE service = 'Projetos de Arquitetura' AND exclusions = 'Execução, gerenciamento ou acompanhamento de obra';
+UPDATE proposal_templates SET scope = 'Projeto de interiores dos ambientes combinados: layout, escolha de materiais, cores e iluminação, e marcenaria desenhada sob medida para o seu espaço e a sua rotina.' WHERE service = 'Design de Interiores' AND scope = 'Projeto de interiores dos ambientes combinados: layout, escolha de materiais, cores e iluminação, e marcenaria desenhada sob medida para o seu espaço.';
+UPDATE proposal_templates SET deliverables = 'Layout com a disposição do mobiliário\nEspecificação de materiais, cores e acabamentos\nProjeto de iluminação decorativa\nProjeto de marcenaria sob medida\nRenders realistas de cada ambiente' WHERE service = 'Design de Interiores' AND deliverables = 'Layout e especificação de materiais\nProjeto de marcenaria sob medida\nIluminação e cores\nRenders realistas de cada ambiente';
+UPDATE proposal_templates SET exclusions = 'Execução, gerenciamento ou acompanhamento de obra\nCompra de móveis, materiais e objetos de decoração\nPranchas executivas de elétrica, hidráulica, forro e pisos (contratadas à parte no Detalhamento Executivo)' WHERE service = 'Design de Interiores' AND exclusions = 'Execução, gerenciamento ou acompanhamento de obra';
+UPDATE proposal_templates SET scope = 'Planta de layout com cotas e áreas e planta 3D humanizada do seu imóvel, a partir da planta original ou das medidas que você enviar, para construir, reformar, vender ou entender melhor o espaço.' WHERE service = 'Plantas Baixas' AND scope = 'Planta de layout com cotas e áreas e planta 3D humanizada do seu imóvel, para construir, reformar ou entender melhor o espaço.';
+UPDATE proposal_templates SET exclusions = 'Medição no local (usamos a planta ou as medidas que você enviar)\nProjeto legal para aprovação em órgãos ou condomínio\nExecução, gerenciamento ou acompanhamento de obra' WHERE service = 'Plantas Baixas' AND exclusions = 'Execução, gerenciamento ou acompanhamento de obra';
+UPDATE proposal_templates SET deliverables = 'Análise prévia da planta, das fotos ou do terreno que você enviar\nRecomendações práticas para o seu caso\nResumo por escrito com os pontos combinados na sessão\nAtendimento online, no seu horário' WHERE service = 'Consultoria' AND deliverables = 'Análise da sua planta, terreno ou imóvel\nRecomendações práticas para o seu caso\nAtendimento online, no seu horário';
+UPDATE proposal_templates SET exclusions = 'Desenvolvimento de projeto completo ou desenhos técnicos\nExecução, gerenciamento ou acompanhamento de obra' WHERE service = 'Consultoria' AND exclusions = 'Desenvolvimento de projeto completo\nExecução, gerenciamento ou acompanhamento de obra';
+UPDATE proposal_templates SET exclusions = 'Execução, gerenciamento ou acompanhamento de obra\nProjetos de engenharia assinados por engenheiro (estrutural, elétrico e hidráulico)\nCompra de materiais' WHERE service = 'Detalhamento Executivo' AND exclusions = 'Execução, gerenciamento ou acompanhamento de obra';
+UPDATE briefing_templates SET questions = 'Tipo de projeto | select | Casa nova;Reforma;Ampliação;Regularização\nOnde fica o terreno ou imóvel (bairro e cidade) | text\nÁrea do terreno (m²) | number\nÁrea construída pretendida (m²) | number\nO terreno é em condomínio? | select | Sim, regularizado;Sim, em regularização;Não\nVocês já têm o levantamento topográfico do terreno? | select | Sim;Não;Não sei\nQuantas pessoas vão morar e quem são | textarea\nAmbientes que não podem faltar | textarea\nEstilo que vocês gostam (pode citar referências) | textarea\nOrçamento previsto para a obra | text\nPrazo desejado para começar a obra | text\nRestrições do condomínio ou do terreno que já conhecem | textarea\nAlgo mais que devemos saber | textarea' WHERE service = 'Projetos de Arquitetura' AND questions = 'Tipo de projeto | select | Casa nova;Reforma;Ampliação;Regularização\nOnde fica o terreno ou imóvel (bairro e cidade) | text\nÁrea do terreno (m²) | number\nÁrea construída pretendida (m²) | number\nO terreno é em condomínio? | select | Sim, regularizado;Sim, em regularização;Não\nQuantas pessoas vão morar e quem são | textarea\nAmbientes que não podem faltar | textarea\nEstilo que vocês gostam (pode citar referências) | textarea\nOrçamento previsto para a obra | text\nPrazo desejado para começar a obra | text\nRestrições do condomínio ou do terreno que já conhecem | textarea\nAlgo mais que devemos saber | textarea';
+UPDATE briefing_templates SET questions = 'Imóvel | select | Apartamento;Casa;Comercial\nOnde fica (bairro e cidade) | text\nÁrea (m²) | number\nVocês têm a planta do imóvel? | select | Sim, a planta original;Tenho medidas;Não tenho\nAmbientes do projeto | textarea\nO imóvel é novo ou já está mobiliado? | select | Novo, vazio;Já mobiliado, vamos aproveitar peças;Já mobiliado, vamos trocar tudo\nQuem vai usar os ambientes e como é a rotina | textarea\nEstilo que vocês gostam (pode citar referências) | textarea\nCores e materiais que gostam ou não gostam | textarea\nPrecisa de home office? | select | Sim;Não\nOrçamento previsto para marcenaria e mobiliário | text\nPrazo desejado para a obra ou a mudança | text\nAlgo mais que devemos saber | textarea' WHERE service = 'Design de Interiores' AND questions = 'Imóvel | select | Apartamento;Casa;Comercial\nOnde fica (bairro e cidade) | text\nÁrea (m²) | number\nAmbientes do projeto | textarea\nO imóvel é novo ou já está mobiliado? | select | Novo, vazio;Já mobiliado, vamos aproveitar peças;Já mobiliado, vamos trocar tudo\nQuem vai usar os ambientes e como é a rotina | textarea\nEstilo que vocês gostam (pode citar referências) | textarea\nCores e materiais que gostam ou não gostam | textarea\nPrecisa de home office? | select | Sim;Não\nOrçamento previsto para marcenaria e mobiliário | text\nPrazo desejado para a obra ou a mudança | text\nAlgo mais que devemos saber | textarea';
+UPDATE briefing_templates SET questions = 'Para que é a planta | select | Construir;Reformar;Vender ou alugar;Entender melhor o imóvel\nImóvel | select | Apartamento;Casa;Comercial\nOnde fica (bairro e cidade) | text\nÁrea aproximada (m²) | number\nVocês têm a planta original ou medidas? | select | Tenho a planta original;Tenho medidas;Não tenho\nO que deve aparecer (mobiliário, cotas, áreas) | textarea\nPrazo desejado | text' WHERE service = 'Plantas Baixas' AND questions = 'Para que é a planta | select | Construir;Reformar;Vender ou alugar;Entender melhor o imóvel\nImóvel | select | Apartamento;Casa;Comercial\nÁrea aproximada (m²) | number\nVocês têm a planta original ou medidas? | select | Tenho a planta original;Tenho medidas;Não tenho\nO que deve aparecer (mobiliário, cotas, áreas) | textarea\nPrazo desejado | text';
+UPDATE briefing_templates SET questions = 'Assunto da consultoria | select | Layout;Materiais e acabamentos;Compra de imóvel;Reforma;Outro\nDescreva a dúvida principal | textarea\nOnde fica o imóvel (bairro e cidade) | text\nTem planta ou fotos para enviar antes da sessão? | select | Sim;Não\nMelhores dias e horários para a videochamada | text' WHERE service = 'Consultoria' AND questions = 'Assunto da consultoria | select | Layout;Materiais e acabamentos;Compra de imóvel;Reforma;Outro\nDescreva a dúvida principal | textarea\nOnde fica o imóvel (bairro e cidade) | text\nMelhores dias e horários para a videochamada | text';
+UPDATE briefing_templates SET questions = 'Vocês já têm o projeto de arquitetura ou interiores? | select | Sim, feito pela LI Projetos;Sim, feito por outro profissional;Não\nAmbientes a detalhar | textarea\nÁrea (m²) | number\nVocês têm os arquivos do projeto (DWG ou PDF)? | select | Sim, DWG;Só PDF;Não\nO que precisa ser detalhado | textarea\nQuem vai executar a obra (construtor, marceneiro) | text\nPrazo para começar a obra | text' WHERE service = 'Detalhamento Executivo' AND questions = 'Vocês já têm o projeto de arquitetura ou interiores? | select | Sim, feito pela LI Projetos;Sim, feito por outro profissional;Não\nAmbientes a detalhar | textarea\nO que precisa ser detalhado | textarea\nQuem vai executar a obra (construtor, marceneiro) | text\nPrazo para começar a obra | text';

@@ -123,6 +123,14 @@ final class Projects
     }
 
     /** Creates the project for an accepted proposal. Idempotent: one project per proposal. */
+    /** Pure: when the final phase starts (= end of the one before it). The last installment is due then, so payment comes before delivery. */
+    public static function beforeFinal(array $phases): ?string
+    {
+        if (!$phases) return null;
+        // ponytail: one phase only → due on its delivery day; the anti-calote lock still holds the files until paid
+        return count($phases) >= 2 ? ($phases[count($phases) - 2]['due_date'] ?? null) : ($phases[0]['due_date'] ?? null);
+    }
+
     public static function fromProposal(array $p, ?int $opportunityId): int
     {
         $existing = Db::q('SELECT id FROM projects WHERE proposal_id = ?', [$p['id']])->fetchColumn();
@@ -133,10 +141,10 @@ final class Projects
         Db::q('INSERT INTO projects (client_id, opportunity_id, proposal_id, title, contract_value, revisions_included, manager_id, start_date) VALUES (?,?,?,?,?,?,?,?)',
             [$p['client_id'], $opportunityId, $p['id'], mb_substr((string) $p['title'], 0, 160), (float) ($p['total'] ?? 0), Revisions::included($p['revision_policy'] ?? null), $manager, $start]);
         $id = (int) Db::pdo()->lastInsertId();
-        foreach (self::plan($schedule, $start) as $i => $ph) Db::q('INSERT INTO project_phases (project_id, name, sort, due_date) VALUES (?,?,?,?)', [$id, $ph['name'], $i, $ph['due_date']]);
+        $phases = self::plan($schedule, $start);
+        foreach ($phases as $i => $ph) Db::q('INSERT INTO project_phases (project_id, name, sort, due_date) VALUES (?,?,?,?)', [$id, $ph['name'], $i, $ph['due_date']]);
         self::sync($id);
-        $due = Db::q('SELECT due_date FROM projects WHERE id = ?', [$id])->fetchColumn() ?: null;
-        Finance::createFor($id, (int) $p['client_id'], (string) ($p['payment_terms'] ?? ''), (float) ($p['total'] ?? 0), $start, $due);
+        Finance::createFor($id, (int) $p['client_id'], (string) ($p['payment_terms'] ?? ''), (float) ($p['total'] ?? 0), $start, self::beforeFinal($phases));
         Clients::event((int) $p['client_id'], 'sistema', 'Projeto #' . $id . ' criado a partir da proposta #' . $p['id'] . '.');
         if ($manager) Notify::user((int) $manager, 'Novo projeto: ' . $p['title'], '/projetos/' . $id);
         Audit::log('project.create', 'project', $id);

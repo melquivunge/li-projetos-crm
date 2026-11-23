@@ -25,6 +25,7 @@ OLDTOKEN=$TOKEN; TOKEN=$(curl -s -b $S/adm.jar $B/propostas/$PID2 | grep -o '/p/
 curl -s -o /dev/null -b $S/adm.jar --data-urlencode _csrf=$T $B/propostas/$PID2/whatsapp
 echo "link antigo leva à v2: $(curl -s -o /dev/null -w %{redirect_url} $B/p/$OLDTOKEN | grep -c $TOKEN)"
 J=$S/anon.jar; echo "cliente vê: $(curl -s -c $J $B/p/$TOKEN | grep -o 'Aceitar proposta' | head -1)"
+echo "cláusula de quitação na página: $(curl -s $B/p/$TOKEN | grep -c 'liberados após a quitação total')" ; [ -n "${KEEP_PDF:-}" ] && curl -s -b $S/adm.jar $B/propostas/$PID/pdf -o "$KEEP_PDF"
 AT=$(curl -s -b $J -c $J $B/p/$TOKEN | grep -o 'name="_csrf" value="[^"]*' | head -1 | cut -d'"' -f4)
 echo "aceite sem CSRF: $(curl -s -o /dev/null -w %{http_code} -b $J -d answer=aceitar $B/p/$TOKEN/resposta)"
 echo "aceite sem nome: $(curl -s -o /dev/null -w %{redirect_url} -b $J -c $J --data-urlencode _csrf=$AT -d answer=aceitar $B/p/$TOKEN/resposta | grep -o '#aceite')"

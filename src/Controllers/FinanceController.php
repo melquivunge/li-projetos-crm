@@ -70,6 +70,7 @@ final class FinanceController
         Db::q("UPDATE installments SET status = 'paga', paid_at = ?, paid_amount = ?, method = ? WHERE id = ?", [$date, $amount, $method, $i['id']]);
         Clients::event((int) $i['client_id'], 'cobranca', 'Pagamento recebido: ' . money($amount) . ' (' . Finance::METHODS[$method] . ') · ' . $i['project_title'] . ', ' . ($i['description'] ?: 'parcela ' . $i['number']) . '.');
         Audit::log('installment.pay', 'installment', (int) $i['id']);
+        Finance::syncHold((int) $i['project_id']);
         flash('Pagamento registrado.');
         self::back($i);
     }
@@ -82,6 +83,7 @@ final class FinanceController
         Db::q("UPDATE installments SET status = 'aberta', paid_at = NULL, paid_amount = NULL, method = NULL WHERE id = ?", [$i['id']]);
         Clients::event((int) $i['client_id'], 'cobranca', ($i['status'] === 'paga' ? 'Pagamento estornado: ' : 'Parcela reativada: ') . money((float) $i['amount']) . ' · ' . $i['project_title'] . '.');
         Audit::log('installment.reopen', 'installment', (int) $i['id']);
+        Finance::syncHold((int) $i['project_id']);
         self::back($i);
     }
 
@@ -91,6 +93,7 @@ final class FinanceController
         if ($i['status'] !== 'aberta') self::back($i);
         Db::q("UPDATE installments SET status = 'cancelada' WHERE id = ?", [$i['id']]);
         Audit::log('installment.cancel', 'installment', (int) $i['id']);
+        Finance::syncHold((int) $i['project_id']);
         self::back($i);
     }
 
@@ -102,6 +105,7 @@ final class FinanceController
         $desc = mb_substr(trim((string) ($_POST['description'] ?? '')), 0, 120) ?: $i['description'];
         Db::q('UPDATE installments SET amount = ?, due_date = ?, description = ? WHERE id = ?', [$amount, $due, $desc, $i['id']]);
         Audit::log('installment.update', 'installment', (int) $i['id']);
+        Finance::syncHold((int) $i['project_id']);
         self::back($i);
     }
 

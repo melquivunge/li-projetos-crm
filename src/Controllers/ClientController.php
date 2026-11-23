@@ -79,14 +79,30 @@ final class ClientController
         return $o && isset(self::owners()[$o]) ? $o : null;
     }
 
+    /** Address lookup for the client form (ViaCEP, through the server: CSP keeps the browser on our own origin). Sends only the CEP. */
+    public static function cep(string $cep): void
+    {
+        Auth::requirePerm('crm');
+        header('Content-Type: application/json; charset=utf-8');
+        if (strlen($cep) !== 8) { http_response_code(422); echo '{}'; return; }
+        $ch = curl_init("https://viacep.com.br/ws/$cep/json/");
+        curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 4, CURLOPT_CONNECTTIMEOUT => 3, CURLOPT_USERAGENT => 'crm-cep/1.0']);
+        $r = json_decode((string) curl_exec($ch), true);
+        curl_close($ch);
+        if (!is_array($r) || !empty($r['erro']) || empty($r['uf'])) { http_response_code(404); echo '{}'; return; } // ponytail: no cache, one lookup per typed CEP
+        echo json_encode(['street' => (string) ($r['logradouro'] ?? ''), 'district' => (string) ($r['bairro'] ?? ''), 'city' => (string) ($r['localidade'] ?? ''), 'state' => (string) $r['uf']], JSON_UNESCAPED_UNICODE);
+    }
+
     public static function store(): void
     {
         Auth::requirePerm('crm');
         [$d, $errors] = Clients::validate($_POST);
+        [$pf, $pe] = Clients::validateProfile($_POST, date('Y-m-d')); $errors += $pe;
         if ($errors) { http_response_code(422); view('client_form', ['c' => $_POST, 'errors' => $errors, 'owners' => self::owners()]); return; }
         Db::q('INSERT INTO clients (name, whatsapp, email, city, service, area_m2, origin, gclid, owner_id) VALUES (?,?,?,?,?,?,?,?,?)',
             [$d['name'], $d['whatsapp'], $d['email'], $d['city'], $d['service'], $d['area_m2'], $d['origin'] ?? 'manual', $d['gclid'], self::ownerFromPost(null)]);
         $id = (int) Db::pdo()->lastInsertId();
+        Clients::saveProfile($id, $pf);
         Opportunities::create($id, $d['service'] ?: 'Projeto', $d['service'], self::ownerFromPost(null), 'novo');
         Clients::event($id, 'sistema', 'Cliente cadastrado manualmente.');
         Audit::log('client.create', 'client', $id);
@@ -105,7 +121,10 @@ final class ClientController
         $owners = self::owners();
         $briefings = [];
         foreach (Db::q('SELECT id, opportunity_id, status FROM briefings WHERE client_id = ? ORDER BY id', [$c['id']]) as $bf) $briefings[$bf['opportunity_id']] = $bf;
-        view('client_show', compact('c', 'events', 'proposals', 'opps', 'tasks', 'owners', 'briefings'));
+        $installments = Db::q("SELECT i.status, i.amount, i.paid_amount, i.due_date, i.paid_at FROM installments i JOIN projects p ON p.id = i.project_id WHERE i.client_id = ? AND p.status <> 'cancelado'", [$c['id']])->fetchAll();
+        $contracted = (float) Db::q("SELECT COALESCE(SUM(contract_value),0) FROM projects WHERE client_id = ? AND status <> 'cancelado'", [$c['id']])->fetchColumn();
+        $payer = \App\Finance::payerSummary($installments, date('Y-m-d')) + ['contracted' => $contracted];
+        view('client_show', compact('c', 'events', 'proposals', 'opps', 'tasks', 'owners', 'briefings', 'payer'));
     }
 
     public static function edit(string $id): void
@@ -119,11 +138,13 @@ final class ClientController
         Auth::requirePerm('crm');
         $c = Clients::findOrFail((int) $id);
         [$d, $errors] = Clients::validate($_POST);
+        [$pf, $pe] = Clients::validateProfile($_POST, date('Y-m-d')); $errors += $pe;
         if ($errors) { http_response_code(422); view('client_form', ['c' => ['id' => $c['id']] + $_POST, 'errors' => $errors, 'owners' => self::owners()]); return; }
         $prev = $c['owner_id'] !== null ? (int) $c['owner_id'] : null;
         $owner = self::ownerFromPost($prev);
         Db::q('UPDATE clients SET name=?, whatsapp=?, email=?, city=?, service=?, area_m2=?, origin=?, gclid=?, owner_id=? WHERE id=?',
             [$d['name'], $d['whatsapp'], $d['email'], $d['city'], $d['service'], $d['area_m2'], $d['origin'], $d['gclid'], $owner, $c['id']]);
+        Clients::saveProfile((int) $c['id'], $pf);
         if ($owner !== $prev) Clients::event((int) $c['id'], 'sistema', 'Responsável alterado para ' . (self::owners()[$owner] ?? 'ninguém') . '.');
         Audit::log('client.update', 'client', (int) $c['id']);
         flash('Dados salvos.');

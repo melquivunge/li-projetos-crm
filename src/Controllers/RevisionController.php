@@ -91,6 +91,7 @@ final class RevisionController
     public static function send(string $id): void
     {
         [$d, $p] = self::deliverable($id);
+        if ($p['status'] === 'pausado' && ($p['hold_reason'] ?? '') === 'pagamento') { flash('Projeto pausado por pagamento em atraso: novas entregas ficam bloqueadas até o cliente regularizar.', 'danger'); self::back((int) $p['id'], 'entregas'); }
         if (!Db::q("SELECT 1 FROM files WHERE owner_type = 'deliverable' AND owner_id = ?", [$d['id']])->fetch()) { flash('Envie pelo menos um arquivo antes de mandar para o cliente.', 'danger'); self::back((int) $p['id'], 'entregas'); }
         $c = Db::q('SELECT name, whatsapp FROM clients WHERE id = ?', [$p['client_id']])->fetch(); // project visibility already checked
         if (!$d['public_token']) { $d['public_token'] = bin2hex(random_bytes(32)); Db::q('UPDATE deliverables SET public_token = ? WHERE id = ?', [$d['public_token'], $d['id']]); }
@@ -137,7 +138,8 @@ final class RevisionController
         $used = Revisions::used($all, $d['phase_id'] ? (int) $d['phase_id'] : null);
         $approval = Db::q("SELECT * FROM approvals WHERE entity = 'deliverable' AND entity_id = ? ORDER BY id DESC LIMIT 1", [$d['id']])->fetch() ?: null;
         $msg = $_SESSION['e_msg'] ?? null; unset($_SESSION['e_msg']);
-        view('deliverable_public', compact('d', 'p', 'c', 'latest', 'pending', 'open', 'used', 'approval', 'msg') + ['token' => $token], 'layout_guest');
+        $paid = \App\Finance::projectPaidUp($p);
+        view('deliverable_public', compact('d', 'p', 'c', 'latest', 'pending', 'open', 'used', 'approval', 'msg', 'paid') + ['token' => $token], 'layout_guest');
     }
 
     public static function publicAnswer(string $token): void
@@ -175,8 +177,9 @@ final class RevisionController
 
     public static function publicFile(string $token, string $id): void
     {
-        [$d] = self::byToken($token);
+        [$d, $p] = self::byToken($token);
         $f = Db::q("SELECT * FROM files WHERE id = ? AND owner_type = 'deliverable' AND owner_id = ? AND visible_to_client = 1", [(int) $id, $d['id']])->fetch() ?: abort(404);
+        if (!\App\Finance::projectPaidUp($p)) Files::sendPreview($f); // anti-calote: originals only when fully paid
         Files::send($f, !empty($_GET['baixar']));
     }
 }

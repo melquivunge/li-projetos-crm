@@ -4,7 +4,7 @@ declare(strict_types=1);
 require dirname(__DIR__) . '/src/bootstrap.php';
 
 use App\Router;
-use App\Controllers\{ApiController, BriefingController, AuthController, ClientController, OpportunityController, TaskController, ProfileController, ProposalController, DashboardController, BrandController, FinanceController, ProjectController, RevisionController, UserController};
+use App\Controllers\{ApiController, BriefingController, AuthController, ClientController, OpportunityController, TaskController, ProfileController, ProposalController, DashboardController, BrandController, FinanceController, ProjectController, PortalController, RevisionController, UserController};
 
 $r = new Router();
 $r->get('/login', [AuthController::class, 'form']);
@@ -18,6 +18,7 @@ $r->post('/usuarios/{id}/ativo', [UserController::class, 'toggle']);
 $r->get('/clientes', [ClientController::class, 'index']);
 $r->get('/clientes/novo', [ClientController::class, 'create']);
 $r->post('/clientes', [ClientController::class, 'store']);
+$r->get('/api/cep/{cep}', [ClientController::class, 'cep']);
 $r->get('/clientes/{id}', [ClientController::class, 'show']);
 $r->get('/clientes/{id}/editar', [ClientController::class, 'edit']);
 $r->post('/clientes/{id}', [ClientController::class, 'update']);
@@ -100,6 +101,14 @@ $r->get('/notificacoes', [ProfileController::class, 'notifications']);
 $r->get('/notificacoes/{id}', [ProfileController::class, 'openNotification']);
 $r->post('/notificacoes/lidas', [ProfileController::class, 'readAll']);
 $r->get('/api/pulse', [ProfileController::class, 'pulse']);
+$r->post('/clientes/{id}/portal', [PortalController::class, 'invite']);
+$r->get('/portal', [PortalController::class, 'home']);
+$r->get('/portal/login', [PortalController::class, 'loginForm']);
+$r->post('/portal/login', [PortalController::class, 'login']);
+$r->post('/portal/sair', [PortalController::class, 'logout']);
+$r->get('/portal/convite/{token}', [PortalController::class, 'inviteForm']);
+$r->post('/portal/convite/{token}', [PortalController::class, 'acceptInvite']);
+$r->get('/portal/arquivos/{id}', [PortalController::class, 'file']);
 $r->post('/api/lead', [ApiController::class, 'lead']);
 $r->post('/api/event', [ApiController::class, 'event']);
 

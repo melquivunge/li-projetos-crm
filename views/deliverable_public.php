@@ -21,11 +21,14 @@ $left = max(0, $inc - $used);
 
     <section class="doc-sec">
       <h2>Arquivos</h2>
+      <?php if ($latest && !$paid): ?><p class="small text-body-secondary">As imagens aparecem como prévia, suficiente para aprovar. Os arquivos originais (alta resolução, PDF e DWG) são liberados quando o pagamento do projeto estiver completo.</p><?php endif; ?>
       <?php if (!$latest): ?><p class="text-body-secondary">Os arquivos ainda não estão disponíveis.</p><?php endif; ?>
       <div class="deliv-gallery">
         <?php foreach ($latest as $f): $url = '/e/' . e($token) . '/arquivos/' . (int) $f['id']; ?>
           <?php if (in_array($f['mime'], ['image/jpeg', 'image/png', 'image/webp'], true)): ?>
             <a class="deliv-img" href="<?= $url ?>" target="_blank" rel="noopener"><img src="<?= $url ?>" alt="<?= e($f['name']) ?>" loading="lazy"><span><?= e($f['name']) ?><?= (int) $f['version'] > 1 ? ' · versão ' . (int) $f['version'] : '' ?></span></a>
+          <?php elseif (!$paid): ?>
+              <div class="deliv-doc is-locked"><?= icon('shield') ?><span><strong><?= e($f['name']) ?></strong><small>Liberado após a quitação</small></span></div>
           <?php else: ?>
             <a class="deliv-doc" href="<?= $url ?><?= $f['mime'] === 'application/pdf' ? '' : '?baixar=1' ?>" target="_blank" rel="noopener"><?= icon('file') ?><span><strong><?= e($f['name']) ?></strong><small><?= $f['mime'] === 'application/pdf' ? 'Abrir PDF' : 'Baixar' ?><?= (int) $f['version'] > 1 ? ' · versão ' . (int) $f['version'] : '' ?></small></span></a>
           <?php endif; ?>

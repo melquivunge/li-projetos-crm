@@ -10,11 +10,13 @@ final class Finance
     public const CATEGORIES = ['impressao' => 'Impressão', 'deslocamento' => 'Deslocamento', 'software' => 'Software', 'terceiros' => 'Terceiros', 'outros' => 'Outros'];
     /** Days relative to the due date when the team is reminded (negative = before). */
     public const MILESTONES = [-3, 0, 1, 7, 15, 30];
+    /** Fixed contract clause shown in every proposal (page and PDF); the client accepts it with "li e concordo". */
+    public const DELIVERY_CLAUSE = 'A última parcela vence antes da entrega final. Os arquivos finais (editáveis, em alta resolução, PDF e DWG) são liberados após a quitação total do projeto. Até lá, você acompanha e aprova cada etapa por prévias no portal do cliente. Com parcela 7 dias ou mais em atraso, o projeto fica pausado até a regularização, e os prazos voltam a contar a partir do pagamento.';
 
     /**
      * Pure: installments from the free-text payment terms.
      * "50% na assinatura + 50% na entrega" → 2 parts; "3x" / "em 3 parcelas" → 3 equal; otherwise one part.
-     * First part due at $start; with $end the last one is due at $end, else parts are 30 days apart.
+     * First part due at $start; with $end (start of the final phase) the last one is due then, before delivery; else parts are 30 days apart.
      */
     public static function plan(string $terms, float $total, string $start, ?string $end = null): array
     {
@@ -29,7 +31,8 @@ final class Finance
             $amount = $i === $n - 1 ? round($total - $sum, 2) : round($total * $p / 100, 2);
             $sum += $amount;
             $due = $i === 0 ? $start : ($i === $n - 1 && $end && $end > $start ? $end : date('Y-m-d', strtotime("$start +" . (30 * $i) . ' days')));
-            $out[] = ['number' => $i + 1, 'amount' => $amount, 'due_date' => $due, 'description' => $n === 1 ? 'Pagamento único' : ($i === 0 ? 'Entrada' : 'Parcela ' . ($i + 1) . " de $n")];
+            if ($i > 0 && $end && $end > $start && $due > $end) $due = $end; // nothing falls due after the last (pre-delivery) installment
+            $out[] = ['number' => $i + 1, 'amount' => $amount, 'due_date' => $due, 'description' => $n === 1 ? 'Pagamento único' : ($i === 0 ? 'Entrada' : ($i === $n - 1 && $end ? 'Antes da entrega final' : 'Parcela ' . ($i + 1) . " de $n"))];
         }
         return $out;
     }
@@ -38,6 +41,75 @@ final class Finance
     public static function daysLate(string $due, string $today): int
     {
         return (int) round((strtotime($today) - strtotime($due)) / 86400);
+    }
+
+    /** Anti-calote: a project is paused when an installment is this many days late. */
+    public const HOLD_DAYS = 7;
+
+    /** Pure: originals (full resolution, PDF, DWG) unlock only with nothing open and the contract fully paid. */
+    public static function paidUp(?float $contract, array $installments): bool
+    {
+        $paid = 0.0;
+        foreach ($installments as $i) {
+            if ($i['status'] === 'aberta') return false;
+            if ($i['status'] === 'paga') $paid += (float) ($i['paid_amount'] ?? $i['amount']);
+        }
+        return $paid + 0.01 >= (float) $contract;
+    }
+
+    /** Pure: pause the project when any open installment is HOLD_DAYS or more late. */
+    public static function shouldHold(array $installments, string $today): bool
+    {
+        foreach ($installments as $i) if ($i['status'] === 'aberta' && self::daysLate($i['due_date'], $today) >= self::HOLD_DAYS) return true;
+        return false;
+    }
+
+    /**
+     * Pure: a client's payment record. Badge: "Inadimplente" (something HOLD_DAYS+ late), "Em atraso" (late now),
+     * "Pagou com atraso" (history), "Bom pagador" (always on time) or "Sem histórico".
+     */
+    public static function payerSummary(array $installments, string $today): array
+    {
+        $r = ['paid' => 0.0, 'open' => 0.0, 'overdue' => 0.0, 'late_paid' => 0, 'max_late' => 0, 'count' => 0];
+        foreach ($installments as $i) {
+            if ($i['status'] === 'cancelada') continue;
+            $r['count']++;
+            if ($i['status'] === 'paga') {
+                $r['paid'] += (float) ($i['paid_amount'] ?? $i['amount']);
+                if ($i['paid_at'] && $i['paid_at'] > $i['due_date']) $r['late_paid']++;
+                continue;
+            }
+            $r['open'] += (float) $i['amount'];
+            $late = self::daysLate($i['due_date'], $today);
+            if ($late > 0) { $r['overdue'] += (float) $i['amount']; $r['max_late'] = max($r['max_late'], $late); }
+        }
+        $r['badge'] = $r['max_late'] >= self::HOLD_DAYS ? ['Inadimplente', 'danger'] : ($r['max_late'] > 0 ? ['Em atraso', 'warning']
+            : ($r['late_paid'] ? ['Pagou com atraso', 'warning'] : ($r['paid'] > 0 ? ['Bom pagador', 'success'] : ['Sem histórico', 'light'])));
+        return $r;
+    }
+
+    public static function projectPaidUp(array $project): bool
+    {
+        return self::paidUp((float) ($project['contract_value'] ?? 0), Db::q('SELECT status, amount, paid_amount FROM installments WHERE project_id = ?', [$project['id']])->fetchAll());
+    }
+
+    /** Pauses an active project for late payment, or resumes one paused for that reason. Returns 'paused', 'resumed' or null. */
+    public static function syncHold(int $projectId): ?string
+    {
+        $p = Db::q('SELECT id, client_id, title, status, hold_reason FROM projects WHERE id = ?', [$projectId])->fetch();
+        if (!$p) return null;
+        $hold = self::shouldHold(Db::q('SELECT status, due_date FROM installments WHERE project_id = ?', [$projectId])->fetchAll(), date('Y-m-d'));
+        if ($hold && $p['status'] === 'ativo') {
+            Db::q("UPDATE projects SET status = 'pausado', hold_reason = 'pagamento' WHERE id = ?", [$projectId]);
+            Clients::event((int) $p['client_id'], 'cobranca', 'Projeto ' . $p['title'] . ' pausado: parcela com ' . self::HOLD_DAYS . '+ dias de atraso.');
+            return 'paused';
+        }
+        if (!$hold && $p['status'] === 'pausado' && $p['hold_reason'] === 'pagamento') {
+            Db::q("UPDATE projects SET status = 'ativo', hold_reason = NULL WHERE id = ?", [$projectId]);
+            Clients::event((int) $p['client_id'], 'cobranca', 'Projeto ' . $p['title'] . ' retomado: pagamento em dia.');
+            return 'resumed';
+        }
+        return null;
     }
 
     /** Pure: the team-reminder milestone hit today, or null. */
