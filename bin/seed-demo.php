@@ -8,10 +8,18 @@ require dirname(__DIR__) . '/src/bootstrap.php';
 use App\{Db, Opportunities, Projects, Revisions};
 
 if (!in_array(env('APP_ENV'), ['staging', 'local'], true)) { fwrite(STDERR, "Recusado: APP_ENV=" . env('APP_ENV') . ". Só roda em staging ou local.\n"); exit(1); }
-if ((int) Db::q('SELECT COUNT(*) FROM clients')->fetchColumn() > 0) { echo "Banco já tem clientes. Nada feito.\n"; exit(0); }
+$n = (int) Db::q('SELECT COUNT(*) FROM clients')->fetchColumn();
+if ($n > 0 && $n < 24 && in_array('--repair', $argv, true) && env('APP_ENV') === 'staging') {
+    // a previous run stopped half-way: wipe the demo data and start again (staging only)
+    Db::q('DELETE FROM clients');
+    Db::q("DELETE FROM users WHERE email LIKE '%@demo.example.com'");
+    echo "Dados incompletos ($n clientes) apagados.\n"; $n = 0;
+}
+if ($n > 0) { echo "Banco já tem $n clientes. Nada feito.\n"; exit(0); }
 $pass = (string) getenv('SEED_PASSWORD');
 if (strlen($pass) < 10) { fwrite(STDERR, "Defina SEED_PASSWORD (mín. 10).\n"); exit(1); }
 
+set_exception_handler(function (Throwable $e) { echo 'ERRO: ', $e->getMessage(), ' (linha ', $e->getLine(), ' de ', basename($e->getFile()), ")\n"; exit(1); });
 mt_srand(42);
 $day = fn(int $n) => date('Y-m-d', strtotime(($n >= 0 ? '+' : '') . "$n days"));
 $pick = fn(array $a) => $a[mt_rand(0, count($a) - 1)];
