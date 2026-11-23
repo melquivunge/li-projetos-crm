@@ -71,7 +71,7 @@ final class TaskController
         if (!Auth::isAdmin() && (int) $t['owner_id'] !== (int) $u['id'] && !($t['project_id'] && \App\Projects::seeAll())) abort(403);
         $undo = !empty($_POST['undo']);
         $back = (string) ($_POST['back'] ?? '/tarefas');
-        $back = str_starts_with($back, '/') && !str_starts_with($back, '//') ? $back : '/tarefas';
+        $back = safe_back($back, '/tarefas');
         if (!$undo && $t['blocked_by'] && ($b = Db::q('SELECT title FROM tasks WHERE id = ? AND done_at IS NULL', [$t['blocked_by']])->fetchColumn())) {
             flash('Esta tarefa espera "' . $b . '" ser concluída.', 'danger'); redirect($back);
         }

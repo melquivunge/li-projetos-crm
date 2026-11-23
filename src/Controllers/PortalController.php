@@ -15,7 +15,10 @@ final class PortalController
         $c = Clients::findOrFail((int) $id);
         $back = '/clientes/' . $c['id'];
         if (($_POST['action'] ?? '') === 'revoke') {
-            Db::q('UPDATE client_users SET active = 0, invite_hash = NULL WHERE client_id = ?', [$c['id']]);
+            Db::q('UPDATE client_users SET active = 0, invite_hash = NULL, session_version = session_version + 1 WHERE client_id = ?', [$c['id']]);
+            // Delivery links sent earlier stop working too (F04): each gets a new token
+            foreach (Db::q('SELECT d.id FROM deliverables d JOIN projects p ON p.id = d.project_id WHERE p.client_id = ? AND d.public_token IS NOT NULL', [$c['id']])->fetchAll(\PDO::FETCH_COLUMN) as $did)
+                Db::q('UPDATE deliverables SET public_token = ? WHERE id = ?', [bin2hex(random_bytes(32)), $did]);
             Audit::log('portal.revoke', 'client', (int) $c['id']);
             flash('Acesso ao portal desativado.');
             redirect($back);
@@ -68,7 +71,7 @@ final class PortalController
         $error = strlen($pass) < 10 || strlen($pass) > 200 ? 'A senha precisa ter entre 10 e 200 caracteres.'
             : (!hash_equals($pass, (string) ($_POST['password2'] ?? '')) ? 'As duas senhas não são iguais.' : null);
         if ($error) { http_response_code(422); view('portal_invite', compact('u', 'token', 'error'), 'layout_guest'); return; }
-        Db::q('UPDATE client_users SET password_hash = ?, invite_hash = NULL, invite_expires = NULL WHERE id = ?', [password_hash($pass, PASSWORD_DEFAULT), $u['id']]);
+        Db::q('UPDATE client_users SET password_hash = ?, invite_hash = NULL, invite_expires = NULL, session_version = session_version + 1 WHERE id = ?', [password_hash($pass, PASSWORD_DEFAULT), $u['id']]);
         Clients::event((int) $u['client_id'], 'sistema', 'Cliente criou a senha do portal.');
         Portal::start((int) $u['id']);
         redirect('/portal');

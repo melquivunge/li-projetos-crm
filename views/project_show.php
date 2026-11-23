@@ -140,7 +140,7 @@ $openTasks = array_filter($tasks, fn($t) => !$t['done_at']);
             <?php endif; ?>
           </div>
           <form method="post" action="/entregas/<?= (int) $d['id'] ?>" enctype="multipart/form-data" class="d-flex flex-wrap gap-2 align-items-end mt-3"><?= csrf_field() ?>
-            <div><label class="form-label small" for="ds-<?= (int) $d['id'] ?>">Situação</label><select class="form-select form-select-sm" id="ds-<?= (int) $d['id'] ?>" name="status"><?php foreach (PJ::DELIVERABLE_STATUS as $k => $l): ?><option value="<?= $k ?>" <?= $d['status'] === $k ? 'selected' : '' ?>><?= e($l) ?></option><?php endforeach; ?></select></div>
+            <div><label class="form-label small" for="ds-<?= (int) $d['id'] ?>">Situação</label><select class="form-select form-select-sm" id="ds-<?= (int) $d['id'] ?>" name="status"><?php foreach (PJ::DELIVERABLE_STATUS as $k => $l): if ($k === 'aprovado' && $d['status'] !== 'aprovado') continue; /* approval only through "Registrar aprovação" */ ?><option value="<?= $k ?>" <?= $d['status'] === $k ? 'selected' : '' ?>><?= e($l) ?></option><?php endforeach; ?></select></div>
             <div class="flex-grow-1"><label class="form-label small" for="df-<?= (int) $d['id'] ?>">Enviar arquivos</label><input class="form-control form-control-sm" type="file" id="df-<?= (int) $d['id'] ?>" name="files[]" multiple accept="image/jpeg,image/png,image/webp,image/heic,application/pdf,.dwg"></div>
             <button class="btn btn-sm btn-dark">Salvar</button>
           </form>

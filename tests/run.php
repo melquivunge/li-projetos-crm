@@ -167,5 +167,17 @@ $ok($dr(['text' => 'x', 'chatid' => '99@lid', 'sender_pn' => '5561992414304@s.wh
 $ok(WhatsApp::parse(['success' => true, 'data' => ['messageid' => 'A1', 'chatid' => '5561992414304@s.whatsapp.net', 'fromMe' => true, 'text' => 'ok', 'messageType' => 'text']])[0]['from_me'], 'whatsapp DROPE: corpo no formato data{} também é lido');
 $raw = '{"a":1}'; $sig = 'sha256=' . hash_hmac('sha256', $raw, 'seg');
 $ok(WhatsApp::signatureOk($raw, $sig, 'seg') && !WhatsApp::signatureOk($raw, $sig, 'outro') && !WhatsApp::signatureOk($raw . ' ', $sig, 'seg') && !WhatsApp::signatureOk($raw, '', ''), 'whatsapp DROPE: assinatura HMAC conferida');
+// Auditoria 23/11/2026
+$ok(safe_back('/tarefas?x=1#a', 'D') === '/tarefas?x=1#a' && safe_back('//evil.example', 'D') === 'D' && safe_back('/\\evil.example', 'D') === 'D' && safe_back('/a\\b', 'D') === 'D' && safe_back('https://x', 'D') === 'D' && safe_back("/a\nb", 'D') === 'D', 'F10: volta só para caminho interno (sem // nem barra invertida)');
+$envs = fn(array $e) => array_map(fn($k, $v) => [putenv("$k=$v"), $_ENV[$k] = $v], array_keys($e), $e);
+$envs(['WHATSAPP_DRIVER' => 'drope', 'APP_ENV' => 'staging', 'WHATSAPP_ALLOW_NONPROD' => '']);
+$st = WhatsApp::driver();
+$envs(['APP_ENV' => 'production']);
+$pr = WhatsApp::driver();
+$envs(['WHATSAPP_DRIVER' => 'teste', 'APP_ENV' => 'local']);
+$ok($st === 'teste' && $pr === 'drope', 'F01: WhatsApp real só na produção; staging cai no modo de teste');
+$ok(WhatsApp::parse(['event' => 'messages.upsert', 'data' => ['key' => ['remoteJid' => '5561992414304@s.whatsapp.net', 'fromMe' => false], 'message' => ['conversation' => 'sem id']]]) === [], 'F09: mensagem sem ID é descartada (não dá para deduplicar)');
+$ok(App\Controllers\WhatsAppController::shape(['a' => 'segredo', 'b' => ['c' => 5]]) === ['a' => 'string', 'b' => ['c' => 'int']], 'log de formato desconhecido guarda só chaves e tipos, sem valores');
+
 echo $fail ? "\n$fail falha(s)\n" : "\nTudo certo\n";
 exit($fail ? 1 : 0);

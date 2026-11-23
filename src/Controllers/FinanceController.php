@@ -12,7 +12,7 @@ final class FinanceController
     private static function back(array $i): never
     {
         $b = (string) ($_POST['back'] ?? '');
-        redirect(str_starts_with($b, '/') && !str_starts_with($b, '//') ? $b : '/projetos/' . $i['project_id'] . '#financeiro');
+        redirect(safe_back($b, '/projetos/' . $i['project_id'] . '#financeiro'));
     }
 
     /** Installment + project + client, finance permission required. */

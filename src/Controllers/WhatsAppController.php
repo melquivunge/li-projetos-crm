@@ -15,14 +15,15 @@ final class WhatsAppController
         if (strlen($secret) !== 64 || !hash_equals($secret, $token)) abort(404);
         $raw = file_get_contents('php://input', false, null, 0, 2_000_000) ?: ''; // ponytail: media arrive without base64 (we only store text)
         $signing = \App\Finance::setting('wa_signing_secret'); // saved by bin/whatsapp-setup.php
-        if ($signing !== '' && !WhatsApp::signatureOk($raw, (string) ($_SERVER['HTTP_X_DROPE_SIGNATURE'] ?? ''), $signing)) { http_response_code(401); exit; }
+        // With the real provider the signature is mandatory (no signing secret saved = nothing accepted). Test mode accepts unsigned.
+        if (($signing !== '' || WhatsApp::driver() === 'drope') && !WhatsApp::signatureOk($raw, (string) ($_SERVER['HTTP_X_DROPE_SIGNATURE'] ?? ''), $signing)) { http_response_code(401); exit; }
         $in = json_decode($raw, true);
         header('Content-Type: application/json');
         if (!is_array($in)) { http_response_code(400); echo '{"ok":false}'; return; }
         $event = (string) ($_SERVER['HTTP_X_DROPE_EVENT'] ?? '');
         $msgs = WhatsApp::parse($in, $event);
         if (!$msgs && in_array(strtolower($event ?: (string) ($in['EventType'] ?? '')), ['messages', ''], true)) // unknown shape: keep the last one to adjust parse()
-            @file_put_contents(storage_path('whatsapp-unparsed.json'), mb_substr($raw, 0, 20000));
+            @file_put_contents(storage_path('whatsapp-unparsed.json'), json_encode(self::shape($in), JSON_PRETTY_PRINT)); // keys and types only, no personal data
         $n = 0; $media = [];
         foreach ($msgs as $m) if (WhatsApp::store($m)) { $n++; if ($m['kind'] !== 'texto' && $m['id']) $media[] = $m['id']; }
         echo json_encode(['ok' => true, 'stored' => $n]);
@@ -30,6 +31,12 @@ final class WhatsAppController
         // DROPE wants a reply within 8 s: answer first, then keep the audio/photo/file on our server (its link lasts 2 days)
         if (function_exists('fastcgi_finish_request')) fastcgi_finish_request(); elseif (function_exists('litespeed_finish_request')) litespeed_finish_request();
         foreach ($media as $pid) self::keepMedia($pid);
+    }
+
+    /** Pure: the structure of a payload (keys and value types), without the values. */
+    public static function shape(mixed $v): mixed
+    {
+        return is_array($v) ? array_map([self::class, 'shape'], array_slice($v, 0, 50, true)) : get_debug_type($v);
     }
 
     private static function keepMedia(string $providerId): ?array
@@ -61,7 +68,7 @@ final class WhatsAppController
         header('Accept-Ranges: bytes');
         header('Content-Length: ' . ($end - $start + 1));
         header('Content-Disposition: ' . ($inline ? 'inline' : 'attachment') . "; filename*=UTF-8''" . rawurlencode($name));
-        header('Cache-Control: private, max-age=86400');
+        header('Cache-Control: private, no-store');
         header("Content-Security-Policy: default-src 'none'; img-src 'self'; media-src 'self'; style-src 'unsafe-inline'; sandbox");
         header('X-Content-Type-Options: nosniff');
         $fh = fopen($file, 'rb'); fseek($fh, $start); $left = $end - $start + 1;

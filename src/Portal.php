@@ -20,9 +20,10 @@ final class Portal
     public static function user(): ?array
     {
         if (empty($_SESSION['cuid'])) return null;
-        self::$cache ??= Db::q('SELECT cu.id, cu.client_id, cu.email, c.name FROM client_users cu JOIN clients c ON c.id = cu.client_id
+        self::$cache ??= Db::q('SELECT cu.id, cu.client_id, cu.email, cu.session_version, c.name FROM client_users cu JOIN clients c ON c.id = cu.client_id
             WHERE cu.id = ? AND cu.active = 1 AND cu.password_hash IS NOT NULL', [$_SESSION['cuid']])->fetch() ?: null;
-        if (!self::$cache) unset($_SESSION['cuid']);
+        if (self::$cache && (int) self::$cache['session_version'] !== (int) ($_SESSION['csv'] ?? 0)) self::$cache = null; // revoked or re-invited
+        if (!self::$cache) unset($_SESSION['cuid'], $_SESSION['csv']);
         return self::$cache;
     }
 
@@ -47,6 +48,7 @@ final class Portal
     {
         session_regenerate_id(true);
         $_SESSION['cuid'] = $id;
+        $_SESSION['csv'] = (int) Db::q('SELECT session_version FROM client_users WHERE id = ?', [$id])->fetchColumn();
         self::$cache = null;
         Db::q('UPDATE client_users SET last_login_at = NOW() WHERE id = ?', [$id]);
     }
@@ -61,7 +63,7 @@ final class Portal
         if ($other) return null;
         $token = bin2hex(random_bytes(32));
         Db::q('INSERT INTO client_users (client_id, email, invite_hash, invite_expires) VALUES (?,?,?, NOW() + INTERVAL ' . self::INVITE_DAYS . ' DAY)
-            ON DUPLICATE KEY UPDATE email = VALUES(email), invite_hash = VALUES(invite_hash), invite_expires = VALUES(invite_expires), active = 1',
+            ON DUPLICATE KEY UPDATE email = VALUES(email), invite_hash = VALUES(invite_hash), invite_expires = VALUES(invite_expires), active = 1, session_version = session_version + 1',
             [$clientId, $email, hash('sha256', $token)]);
         return $token;
     }

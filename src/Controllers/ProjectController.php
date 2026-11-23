@@ -81,6 +81,10 @@ final class ProjectController
         $p = Projects::findOrFail((int) $id);
         $title = mb_substr(trim((string) ($_POST['title'] ?? '')), 0, 160) ?: $p['title'];
         $status = isset(Projects::STATUS[$_POST['status'] ?? '']) ? $_POST['status'] : $p['status'];
+        if ($p['status'] === 'pausado' && ($p['hold_reason'] ?? '') === 'pagamento' && $status === 'ativo' && \App\Finance::projectOverdue((int) $p['id'])) {
+            flash('O projeto está pausado por pagamento em atraso. Ele volta sozinho a "Ativo" quando a parcela for registrada como paga.', 'danger');
+            $status = $p['status'];
+        }
         $manager = (int) ($_POST['manager_id'] ?? 0);
         if (!$manager || !Db::q('SELECT 1 FROM users WHERE id = ? AND active = 1', [$manager])->fetch()) $manager = $p['manager_id'];
         Db::q("UPDATE projects SET title = ?, status = ?, manager_id = ?, done_at = IF(? = 'concluido', COALESCE(done_at, NOW()), NULL) WHERE id = ?", [$title, $status, $manager, $status, $p['id']]);
@@ -188,11 +192,19 @@ final class ProjectController
         $d = Db::q('SELECT * FROM deliverables WHERE id = ?', [(int) $id])->fetch() ?: abort(404);
         $p = Projects::findOrFail((int) $d['project_id']);
         $status = (string) ($_POST['status'] ?? '');
+        if ($status === 'aprovado' && $d['status'] !== 'aprovado') { flash('Para aprovar, use "Registrar aprovação" (fica gravado quem aprovou e a versão).', 'danger'); $status = ''; }
         if (isset(Projects::DELIVERABLE_STATUS[$status]) && $status !== $d['status']) {
             Db::q('UPDATE deliverables SET status = ? WHERE id = ?', [$status, $d['id']]);
             if (in_array($status, ['enviado', 'aprovado'], true)) Clients::event((int) $p['client_id'], 'sistema', 'Entregável "' . $d['title'] . '": ' . mb_strtolower(Projects::DELIVERABLE_STATUS[$status]) . '.');
         }
         [$saved, $errors] = Files::store(Files::list($_FILES['files'] ?? []), 'deliverable', (int) $d['id'], (int) $p['client_id'], (int) $u['id'], false);
+        if ($saved && Db::q('SELECT status FROM deliverables WHERE id = ?', [$d['id']])->fetchColumn() === 'aprovado') {
+            // The approval covered the old files: a new file needs a new approval
+            Db::q("UPDATE deliverables SET status = 'producao', approved_at = NULL WHERE id = ?", [$d['id']]);
+            Clients::event((int) $p['client_id'], 'sistema', 'Entregável "' . $d['title'] . '": arquivo novo após a aprovação; precisa ser aprovado de novo.');
+            flash('Arquivo novo numa entrega aprovada: ela voltou para "Em produção" e precisa ser enviada e aprovada de novo.', 'danger');
+            self::back((int) $p['id'], 'entregas');
+        }
         if ($errors) flash(implode(' ', $errors), 'danger');
         elseif ($saved) flash($saved === 1 ? 'Arquivo enviado.' : "$saved arquivos enviados.");
         self::back((int) $p['id'], 'entregas');

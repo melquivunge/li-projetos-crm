@@ -7,6 +7,7 @@ if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
 require dirname(__DIR__) . '/src/bootstrap.php';
 use App\{Db, WhatsApp};
 
+if (WhatsApp::driver() !== 'drope') { echo "RECUSADO: o webhook real só é cadastrado na produção (APP_ENV=production e WHATSAPP_DRIVER=drope).\n"; exit(1); }
 $secret = (string) env('WHATSAPP_WEBHOOK_SECRET', '');
 $app = rtrim((string) env('APP_URL', ''), '/');
 if (strlen($secret) !== 64 || !str_starts_with($app, 'https://') || !env('DROPESTORE_TOKEN')) {
@@ -27,6 +28,6 @@ if ($sign) {
     Db::q('INSERT INTO settings (k, v) VALUES (?, ?) ON DUPLICATE KEY UPDATE v = VALUES(v)', ['wa_signing_secret', (string) $sign]);
     echo "Webhook cadastrado; assinatura ativada.\n";
 } else {
-    echo "Webhook cadastrado, mas a resposta não trouxe o signing_secret: entregas aceitas só pelo segredo da URL.\n";
+    echo "ATENÇÃO: a resposta não trouxe o signing_secret. Com o driver drope o CRM recusa entregas sem assinatura: confira o webhook no painel da DROPE.\n";
     echo 'Chaves da resposta: ' . implode(', ', array_keys(is_array($r) ? ($r['data'] ?? $r) : [])) . "\n";
 }

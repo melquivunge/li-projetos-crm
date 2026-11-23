@@ -9,4 +9,7 @@ if ($pass === '') { echo "Senha (mín. 10): "; system('stty -echo'); $pass = tri
 if (strlen($pass) < 10) { fwrite(STDERR, "Senha curta demais.\n"); exit(1); }
 App\Db::q("INSERT INTO users (name,email,password_hash,role) VALUES (?,?,?,'admin') ON DUPLICATE KEY UPDATE password_hash=VALUES(password_hash), role='admin', active=1",
     [$name, mb_strtolower((string) $email), password_hash($pass, PASSWORD_DEFAULT)]);
+// explicit role (the app denies accounts without one) and, on a password reset, every open session ends
+App\Db::q("UPDATE users SET session_version = session_version + 1 WHERE email = ?", [mb_strtolower((string) $email)]);
+App\Db::q("INSERT IGNORE INTO user_roles (user_id, role) SELECT id, 'admin' FROM users WHERE email = ?", [mb_strtolower((string) $email)]);
 echo "Admin pronto: $email\n";

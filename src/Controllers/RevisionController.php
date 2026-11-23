@@ -68,7 +68,8 @@ final class RevisionController
             case 'approve_cost':
                 $name = mb_substr(trim((string) ($_POST['name'] ?? '')), 0, 160);
                 if ($r['status'] !== 'aguardando_aprovacao' || (float) $r['extra_cost'] <= 0 || $name === '') { flash('Defina o valor e informe quem aprovou.', 'danger'); self::back((int) $p['id']); }
-                Revisions::approveCost($r, $p, $name, (int) $u['id']); break;
+                if (!Revisions::approveCost($r, $p, $name, (int) $u['id'])) flash('Este custo já tinha sido aprovado.', 'danger');
+                break;
             default: abort(400);
         }
         Audit::log('revision.' . $action, 'revision', (int) $r['id']);
@@ -91,7 +92,7 @@ final class RevisionController
     public static function send(string $id): void
     {
         [$d, $p] = self::deliverable($id);
-        if ($p['status'] === 'pausado' && ($p['hold_reason'] ?? '') === 'pagamento') { flash('Projeto pausado por pagamento em atraso: novas entregas ficam bloqueadas até o cliente regularizar.', 'danger'); self::back((int) $p['id'], 'entregas'); }
+        if (($p['status'] === 'pausado' && ($p['hold_reason'] ?? '') === 'pagamento') || \App\Finance::projectOverdue((int) $p['id'])) { flash('Projeto pausado por pagamento em atraso: novas entregas ficam bloqueadas até o cliente regularizar.', 'danger'); self::back((int) $p['id'], 'entregas'); }
         if (!Db::q("SELECT 1 FROM files WHERE owner_type = 'deliverable' AND owner_id = ?", [$d['id']])->fetch()) { flash('Envie pelo menos um arquivo antes de mandar para o cliente.', 'danger'); self::back((int) $p['id'], 'entregas'); }
         $c = Db::q('SELECT name, whatsapp FROM clients WHERE id = ?', [$p['client_id']])->fetch(); // project visibility already checked
         if (!$d['public_token']) { $d['public_token'] = bin2hex(random_bytes(32)); Db::q('UPDATE deliverables SET public_token = ? WHERE id = ?', [$d['public_token'], $d['id']]); }
@@ -122,6 +123,7 @@ final class RevisionController
         $d = Db::q('SELECT * FROM deliverables WHERE public_token = ?', [$token])->fetch() ?: abort(404);
         if (!$d['sent_at']) abort(404);
         $p = Db::q('SELECT * FROM projects WHERE id = ?', [$d['project_id']])->fetch() ?: abort(404);
+        if ($p['status'] === 'cancelado') abort(404);
         $c = Db::q('SELECT id, name FROM clients WHERE id = ?', [$p['client_id']])->fetch() ?: abort(404);
         return [$d, $p, $c];
     }
@@ -168,7 +170,7 @@ final class RevisionController
             $r = Db::q("SELECT * FROM revision_requests WHERE id = ? AND deliverable_id = ? AND status = 'aguardando_aprovacao' AND extra_cost > 0", [(int) ($_POST['revision_id'] ?? 0), $d['id']])->fetch();
             if (!$r) redirect('/e/' . $token);
             if (empty($_POST['agree'])) $fail('Marque que você concorda com o valor.');
-            Revisions::approveCost($r, $p, $name, null);
+            if (!Revisions::approveCost($r, $p, $name, null)) redirect('/e/' . $token); // the other click already approved it
             self::team($p, $c['name'] . ' aprovou o custo extra de ' . money((float) $r['extra_cost']) . ' em ' . $p['title'], '/projetos/' . $p['id'] . '#revisoes');
             $_SESSION['e_msg'] = ['success', 'Valor aprovado. A equipe já pode começar o ajuste.'];
         } else abort(400);

@@ -11,7 +11,12 @@ namespace App;
  */
 final class WhatsApp
 {
-    public static function driver(): string { return (string) env('WHATSAPP_DRIVER', ''); }
+    /** The real provider only runs in production (or with WHATSAPP_ALLOW_NONPROD=1): staging can't send as the company or move the webhook. */
+    public static function driver(): string
+    {
+        $d = (string) env('WHATSAPP_DRIVER', '');
+        return $d === 'drope' && env('APP_ENV') !== 'production' && env('WHATSAPP_ALLOW_NONPROD') !== '1' ? 'teste' : $d;
+    }
 
     public static function canSend(): bool { return in_array(self::driver(), ['drope', 'teste'], true); }
 
@@ -68,7 +73,7 @@ final class WhatsApp
                 $phone = self::phone($jid);
                 if (!$phone) continue;
                 [$text, $kind] = self::content((array) ($m['message'] ?? []));
-                if ($text === '' && $kind === 'outro') continue; // reactions, receipts, protocol messages
+                if (($text === '' && $kind === 'outro') || empty($k['id'])) continue; // reactions, receipts; no id = can't dedupe
                 $out[] = ['phone' => $phone, 'name' => !empty($k['fromMe']) ? null : self::clean($m['pushName'] ?? null), 'text' => $text, 'kind' => $kind,
                     'id' => isset($k['id']) ? mb_substr((string) $k['id'], 0, 120) : null, 'from_me' => !empty($k['fromMe']), 'at' => isset($m['messageTimestamp']) ? (int) $m['messageTimestamp'] : null];
             }
@@ -78,7 +83,7 @@ final class WhatsApp
             $phone = self::phone((string) $p['phone']);
             $text = (string) ($p['text']['message'] ?? $p['image']['caption'] ?? '');
             $kind = isset($p['image']) ? 'imagem' : (isset($p['audio']) ? 'audio' : (isset($p['video']) ? 'video' : (isset($p['document']) ? 'documento' : 'texto')));
-            if ($phone && ($text !== '' || $kind !== 'texto')) $out[] = ['phone' => $phone, 'name' => empty($p['fromMe']) ? self::clean($p['senderName'] ?? $p['chatName'] ?? null) : null,
+            if ($phone && !empty($p['messageId']) && ($text !== '' || $kind !== 'texto')) $out[] = ['phone' => $phone, 'name' => empty($p['fromMe']) ? self::clean($p['senderName'] ?? $p['chatName'] ?? null) : null,
                 'text' => mb_substr($text, 0, 4000), 'kind' => $kind, 'id' => isset($p['messageId']) ? mb_substr((string) $p['messageId'], 0, 120) : null,
                 'from_me' => !empty($p['fromMe']), 'at' => isset($p['momment']) ? intdiv((int) $p['momment'], 1000) : null];
         }
@@ -192,11 +197,11 @@ final class WhatsApp
         if (self::driver() !== 'drope' || $providerId === '') return null;
         $r = self::api('/message/download', ['id' => $providerId, 'generate_mp3' => true]);
         $url = (string) ($r['data']['fileURL'] ?? $r['fileURL'] ?? '');
-        if (!str_starts_with($url, 'https://')) return null;
+        if (!str_starts_with($url, 'https://dropestore.com/')) return null; // only the provider's own media host (no SSRF to other hosts)
         $tmp = tempnam(sys_get_temp_dir(), 'wa');
         $fh = fopen($tmp, 'wb');
         $ch = curl_init($url);
-        curl_setopt_array($ch, [CURLOPT_FILE => $fh, CURLOPT_TIMEOUT => 60, CURLOPT_FOLLOWLOCATION => true, CURLOPT_MAXREDIRS => 3, CURLOPT_MAXFILESIZE => self::MEDIA_MAX, CURLOPT_PROTOCOLS => CURLPROTO_HTTPS]);
+        curl_setopt_array($ch, [CURLOPT_FILE => $fh, CURLOPT_TIMEOUT => 60, CURLOPT_FOLLOWLOCATION => false, CURLOPT_MAXFILESIZE => self::MEDIA_MAX, CURLOPT_PROTOCOLS => CURLPROTO_HTTPS]);
         $ok = curl_exec($ch) && curl_getinfo($ch, CURLINFO_HTTP_CODE) === 200;
         curl_close($ch); fclose($fh);
         $kept = $ok ? self::keep($tmp, false) : null;

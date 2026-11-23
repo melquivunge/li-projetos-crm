@@ -102,6 +102,7 @@ final class ProfileController
         if ($new !== (string) ($_POST['confirm_password'] ?? '')) { flash('A confirmação não bate com a nova senha.', 'danger'); redirect('/perfil'); }
         Db::q('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash($new, PASSWORD_DEFAULT), $u['id']]);
         session_regenerate_id(true);
+        $_SESSION['sv'] = Auth::bumpSession((int) $u['id']); // other devices are signed out, this one stays
         Audit::log('profile.password', 'user', (int) $u['id']);
         flash('Senha alterada.');
         redirect('/perfil');
@@ -113,7 +114,7 @@ final class ProfileController
         $t = (string) ($_POST['theme'] ?? '');
         if (isset(self::THEMES[$t])) Db::q('UPDATE users SET theme = ? WHERE id = ?', [$t, $u['id']]);
         $back = (string) ($_POST['back'] ?? '/');
-        redirect(str_starts_with($back, '/') && !str_starts_with($back, '//') ? $back : '/');
+        redirect(safe_back($back, '/'));
     }
 
     // ---- Notifications ----

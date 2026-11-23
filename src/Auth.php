@@ -12,8 +12,10 @@ final class Auth
     {
         if (empty($_SESSION['uid'])) return null;
         if (self::$cache === null || self::$cache['id'] !== $_SESSION['uid']) {
-            self::$cache = Db::q('SELECT id,name,email,role,job_title,avatar,theme FROM users WHERE id=? AND active=1', [$_SESSION['uid']])->fetch() ?: null;
-            if (self::$cache === null) unset($_SESSION['uid']);
+            self::$cache = Db::q('SELECT id,name,email,role,job_title,avatar,theme,session_version FROM users WHERE id=? AND active=1', [$_SESSION['uid']])->fetch() ?: null;
+            // A password change, deactivation or role change bumps session_version: every other open session ends here
+            if (self::$cache && (int) self::$cache['session_version'] !== (int) ($_SESSION['sv'] ?? 0)) self::$cache = null;
+            if (self::$cache === null) unset($_SESSION['uid'], $_SESSION['sv']);
         }
         return self::$cache;
     }
@@ -39,7 +41,7 @@ final class Auth
         $u = $userId ? Db::q('SELECT id, role FROM users WHERE id = ?', [$userId])->fetch() : self::user();
         if (!$u) return [];
         $r = Db::q('SELECT role FROM user_roles WHERE user_id = ?', [$u['id']])->fetchAll(\PDO::FETCH_COLUMN);
-        return $r ?: ($u['role'] === 'admin' ? ['admin'] : ['comercial', 'designer']); // legacy accounts without explicit roles
+        return $r; // no explicit role = no access (migration 018 gave legacy accounts their roles)
     }
 
     public static function can(string $perm): bool
@@ -90,7 +92,7 @@ final class Auth
         if (self::tooManyAttempts($email, $ip)) {
             return 'Muitas tentativas. Aguarde ' . self::WINDOW_MIN . ' minutos e tente de novo.';
         }
-        $u = Db::q('SELECT id, password_hash FROM users WHERE email=? AND active=1', [$email])->fetch();
+        $u = Db::q('SELECT id, password_hash, session_version FROM users WHERE email=? AND active=1', [$email])->fetch();
         // Same cost whether or not the user exists
         $hash = $u['password_hash'] ?? password_hash('dummy-password-for-timing', PASSWORD_DEFAULT);
         if (!password_verify($password, $hash) || !$u) {
@@ -99,10 +101,18 @@ final class Auth
         }
         session_regenerate_id(true);
         $_SESSION['uid'] = (int) $u['id'];
+        $_SESSION['sv'] = (int) $u['session_version'];
         self::$cache = null;
         Db::q('DELETE FROM login_attempts WHERE email=?', [$email]);
         Audit::log('login');
         return null;
+    }
+
+    /** Ends every session of this user (all devices). Returns the new version so the caller can keep its own session. */
+    public static function bumpSession(int $userId): int
+    {
+        Db::q('UPDATE users SET session_version = session_version + 1 WHERE id = ?', [$userId]);
+        return (int) Db::q('SELECT session_version FROM users WHERE id = ?', [$userId])->fetchColumn();
     }
 
     public static function logout(): void

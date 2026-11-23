@@ -76,7 +76,7 @@ final class Files
         header('Content-Type: ' . $f['mime']);
         header('Content-Length: ' . filesize($full));
         header('Content-Disposition: ' . ($inline ? 'inline' : 'attachment') . "; filename*=UTF-8''" . rawurlencode($f['name']));
-        header('Cache-Control: private, max-age=3600');
+        header('Cache-Control: private, no-store');
         header("Content-Security-Policy: default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox");
         readfile($full);
         exit;

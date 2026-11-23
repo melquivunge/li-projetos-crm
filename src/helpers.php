@@ -135,3 +135,9 @@ function asset(string $path): string
     $f = dirname(__DIR__) . '/public' . $path;
     return $path . (is_file($f) ? '?v=' . filemtime($f) : '');
 }
+
+/** Pure: an internal path to go back to, or $default. Blocks "//host", "/\host" (browsers read "\" as "/"), schemes and control chars. */
+function safe_back(string $back, string $default): string
+{
+    return preg_match('#^/(?![/\\\\])[^\\\\\x00-\x1F\x7F]*$#', $back) ? $back : $default;
+}

@@ -52,6 +52,7 @@ final class UserController
         $me = Auth::requireAdmin();
         if ((int) $id === $me['id']) { flash('Você não pode desativar a sua própria conta.', 'danger'); redirect('/usuarios'); }
         Db::q('UPDATE users SET active = 1 - active WHERE id=?', [(int) $id]);
+        Auth::bumpSession((int) $id); // deactivating ends open sessions; reactivating doesn't revive old ones
         Audit::log('user.toggle', 'user', (int) $id);
         redirect('/usuarios');
     }
@@ -62,9 +63,14 @@ final class UserController
         $roles = array_values(array_intersect(array_keys(Auth::ROLES), (array) ($_POST['roles'] ?? [])));
         if (!$roles) { flash('Cada pessoa precisa de pelo menos um papel.', 'danger'); redirect('/usuarios'); }
         if ((int) $id === (int) $me['id'] && !in_array('admin', $roles, true)) { flash('Você não pode tirar o seu próprio acesso de admin.', 'danger'); redirect('/usuarios'); }
+        $pdo = Db::pdo();
+        $pdo->beginTransaction(); // no window where the account has no roles
         Db::q('DELETE FROM user_roles WHERE user_id = ?', [(int) $id]);
         foreach ($roles as $r) Db::q('INSERT INTO user_roles (user_id, role) VALUES (?,?)', [(int) $id, $r]);
         Db::q('UPDATE users SET role = ? WHERE id = ?', [in_array('admin', $roles, true) ? 'admin' : 'equipe', (int) $id]);
+        $pdo->commit();
+        $v = Auth::bumpSession((int) $id); // new permissions start from a fresh login
+        if ((int) $id === (int) $me['id']) $_SESSION['sv'] = $v;
         Audit::log('user.roles', 'user', (int) $id);
         flash('Papéis atualizados.');
         redirect('/usuarios');

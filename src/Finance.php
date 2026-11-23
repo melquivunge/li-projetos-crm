@@ -93,6 +93,12 @@ final class Finance
         return self::paidUp((float) ($project['contract_value'] ?? 0), Db::q('SELECT status, amount, paid_amount FROM installments WHERE project_id = ?', [$project['id']])->fetchAll());
     }
 
+    /** True while the project has an installment HOLD_DAYS+ late (the current debt, not the stored status). */
+    public static function projectOverdue(int $projectId): bool
+    {
+        return self::shouldHold(Db::q("SELECT status, due_date FROM installments WHERE project_id = ? AND status <> 'cancelada'", [$projectId])->fetchAll(), date('Y-m-d'));
+    }
+
     /** Pauses an active project for late payment, or resumes one paused for that reason. Returns 'paused', 'resumed' or null. */
     public static function syncHold(int $projectId): ?string
     {

@@ -40,7 +40,9 @@ echo "admin conclui: $(curl -s -o /dev/null -w %{http_code} -b $S/adm.jar --data
 ADM=$(docker compose exec -T app php -r 'require "src/bootstrap.php"; echo App\Db::q("SELECT id FROM users WHERE email=\"b-admin@example.com\"")->fetchColumn();')
 echo "tirar o próprio admin: $(curl -s -b $S/adm.jar -c $S/adm.jar --data-urlencode _csrf=$T -d 'roles[]=comercial' -L $B/usuarios/$ADM/papeis | grep -o 'Você não pode tirar o seu próprio acesso de admin' | head -1)"
 curl -s -o /dev/null -b $S/adm.jar --data-urlencode _csrf=$T -d 'roles[]=designer' -d 'roles[]=comercial' $B/usuarios/$DES/papeis
-echo "designer virou também comercial → clientes $(code des /clientes)"
+echo "designer virou também comercial → sessão antiga cai (303): $(code des /clientes)"
+login des b-designer@example.com; T=$(curl -s -b $S/adm.jar $B/tarefas | grep -o 'name="_csrf" value="[^"]*' | head -1 | cut -d'"' -f4)
+echo "novo login → clientes $(code des /clientes) (espera 200)"
 echo "comercial salva papéis: $(curl -s -o /dev/null -w %{http_code} -b $S/com.jar --data-urlencode _csrf=$(tok com) -d 'roles[]=admin' $B/usuarios/$DES/papeis)"
 docker compose exec -T app php -r 'require "src/bootstrap.php"; use App\Db; Db::q("DELETE FROM clients WHERE email=\"faseb@example.com\""); Db::q("DELETE FROM tasks WHERE title IN (\"Revisar planta\")"); Db::q("DELETE FROM users WHERE email LIKE \"b-%@example.com\""); Db::q("DELETE FROM login_attempts"); Db::q("DELETE FROM api_rate");'
 rm -r "$S"

@@ -58,8 +58,12 @@ final class Revisions
     }
 
     /** Extra cost approved (by the client on the link, or recorded by the team): unlock it and bill it. */
-    public static function approveCost(array $r, array $project, string $name, ?int $userId): void
+    /** Atomic: only the first of two simultaneous approvals wins (one installment, one approval). Returns false if already approved. */
+    public static function approveCost(array $r, array $project, string $name, ?int $userId): bool
     {
+        $pdo = Db::pdo();
+        $pdo->beginTransaction();
+        if (Db::q("UPDATE revision_requests SET status = 'aberta', cost_approved_at = NOW() WHERE id = ? AND status = 'aguardando_aprovacao'", [$r['id']])->rowCount() !== 1) { $pdo->rollBack(); return false; }
         $inst = null;
         if ((float) $r['extra_cost'] > 0) {
             $n = 1 + (int) Db::q('SELECT COALESCE(MAX(number),0) FROM installments WHERE project_id = ?', [$project['id']])->fetchColumn();
@@ -67,10 +71,12 @@ final class Revisions
                 [$project['id'], $project['client_id'], $n, mb_substr(($r['type'] === 'escopo' ? 'Mudança de escopo' : 'Revisão extra') . ' #' . $r['id'], 0, 120), $r['extra_cost']]);
             $inst = (int) Db::pdo()->lastInsertId();
         }
-        Db::q("UPDATE revision_requests SET status = 'aberta', cost_approved_at = NOW(), installment_id = ? WHERE id = ?", [$inst, $r['id']]);
+        Db::q('UPDATE revision_requests SET installment_id = ? WHERE id = ?', [$inst, $r['id']]);
         Db::q('INSERT INTO approvals (entity, entity_id, version, decision, name, user_id, ip, user_agent) VALUES (?,?,?,?,?,?,?,?)',
             ['revision', $r['id'], 1, 'custo_aprovado', $name, $userId, client_ip(), mb_substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255)]);
         Clients::event((int) $project['client_id'], 'sistema', 'Custo extra aprovado por ' . $name . ': ' . money((float) $r['extra_cost']) . ' · ' . $project['title'] . '.');
+        $pdo->commit();
+        return true;
     }
 
     /** Deliverable approved: stamped with who, when and which file version. */

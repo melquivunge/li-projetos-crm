@@ -211,6 +211,11 @@ final class ClientController
         Auth::requireAdmin();
         $c = Clients::findOrFail((int) $id);
         if (($_POST['confirm'] ?? '') !== 'EXCLUIR') { flash('Digite EXCLUIR para confirmar.', 'danger'); redirect('/clientes/' . $c['id']); }
+        // LGPD: the WhatsApp history goes too (otherwise the chat would become an unlinked "new contact" visible to the whole team)
+        foreach (Db::q('SELECT m.media_path FROM wa_messages m JOIN wa_chats w ON w.id = m.chat_id WHERE w.client_id = ? AND m.media_path IS NOT NULL', [$c['id']])->fetchAll(\PDO::FETCH_COLUMN) as $rel)
+            if ($f = \App\WhatsApp::mediaFile($rel)) @unlink($f);
+        foreach (Db::q('SELECT id FROM wa_chats WHERE client_id = ?', [$c['id']])->fetchAll(\PDO::FETCH_COLUMN) as $wid) Db::q('DELETE FROM notifications WHERE link = ?', ['/whatsapp/' . $wid]);
+        Db::q('DELETE FROM wa_chats WHERE client_id = ?', [$c['id']]);
         Db::q('DELETE FROM clients WHERE id = ?', [$c['id']]);
         Audit::log('client.delete', 'client', (int) $c['id']);
         flash('Cliente e histórico excluídos (LGPD).');
